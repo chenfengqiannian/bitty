@@ -39,17 +39,19 @@ def add_layer(inputs, in_size, out_size, n_layer, activation_function=None):
 
 
 # Make up some real data
-x_data = np.linspace(0,1,1000)[:, np.newaxis]
+x_data_index = np.arange(0,10,0.01)
+x_data_volume=df1["volume"].as_matrix()[0:1000]
+x_data=np.vstack((x_data_index,x_data_volume)).T
 #noise = np.random.normal(0, 0.05, x_data.shape)
 #y_data = np.square(x_data) - 0.5 + noise
 #x_data=df1["time"].as_matrix()[:, np.newaxis][0:1000]
 y_data=df1["price"].as_matrix()[:, np.newaxis][0:1000]
 # define placeholder for inputs to network
 with tf.name_scope('inputs'):
-    xs = tf.placeholder(tf.float32, [None, 1], name='x_input')
+    xs = tf.placeholder(tf.float32, [None, 2], name='x_input')
     ys = tf.placeholder(tf.float32, [None, 1], name='y_input')
 # add hidden layer
-l1 = add_layer(xs, 1,20, n_layer=1,activation_function=tf.nn.relu)
+l1 = add_layer(xs, 2,20, n_layer=1,activation_function=tf.nn.relu)
 l2 = add_layer(l1, 20,20,n_layer=2, activation_function=tf.nn.relu)
 l3=add_layer(l2, 20,20, n_layer=3,activation_function=tf.nn.relu)
 # add output layer
@@ -61,7 +63,7 @@ with tf.name_scope('loss'):
                                         reduction_indices=[1]))
     tf.summary.scalar('loss', loss)
 with tf.name_scope('train'):
-    train_step = tf.train.GradientDescentOptimizer(0.001).minimize(loss)
+    train_step = tf.train.GradientDescentOptimizer(0.0001).minimize(loss)
 sess = tf.Session()
 merged = tf.summary.merge_all()
 
@@ -89,14 +91,14 @@ for i in range(10000000):
     sess.run(train_step, feed_dict={xs: x_data, ys: y_data})
     if i % 50 == 0:
         # to see the step improvement
-        try:
-            ax.lines.remove(lines[0])
-        except Exception:
-            pass
+        # try:
+        #     ax.lines.remove(lines[0])
+        # except Exception:
+        #     pass
         prediction_value = sess.run(prediction, feed_dict={xs: x_data})
         # plot the prediction
-        lines = ax.plot(x_data, prediction_value, 'r-', lw=5)
-        plt.pause(0.1)
+        # lines = ax.plot(x_data, prediction_value, 'r-', lw=5)
+        # plt.pause(0.1)
         print(sess.run(loss, feed_dict={xs: x_data, ys: y_data}))
         result = sess.run(merged,
                           feed_dict={xs: x_data, ys: y_data})
