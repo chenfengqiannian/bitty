@@ -12,6 +12,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import csv
+
+import time
+import math
 df1 = pd.read_csv("btceUSD.csv")
 N=100
 
@@ -55,9 +58,9 @@ with tf.name_scope('inputs'):
     xs = tf.placeholder(tf.float32, [None, 1], name='x_input')
     ys = tf.placeholder(tf.float32, [None, 1], name='y_input')
 # add hidden layer
-l1 = add_layer(xs, 1,20, n_layer=1,activation_function=tf.nn.relu)
-l2 = add_layer(l1, 20,20,n_layer=2, activation_function=tf.nn.relu)
-l3=add_layer(l2, 20,20, n_layer=3,activation_function=tf.nn.relu)
+l1 = add_layer(xs, 1,20, n_layer=1,activation_function=tf.nn.tanh)
+l2 = add_layer(l1, 20,20,n_layer=2, activation_function=tf.nn.tanh)
+l3=add_layer(l2, 20,20, n_layer=3,activation_function=tf.nn.tanh)
 # add output layer
 prediction = add_layer(l3, 20, 1,n_layer=4, activation_function=None)
 
@@ -67,7 +70,7 @@ with tf.name_scope('loss'):
                                         reduction_indices=[1]))
     tf.summary.scalar('loss', loss)
 with tf.name_scope('train'):
-    train_step = tf.train.MomentumOptimizer(0.00001).minimize(loss)
+    train_step = tf.train.GradientDescentOptimizer(0.0001).minimize(loss)
 sess = tf.Session()
 merged = tf.summary.merge_all()
 
@@ -93,13 +96,20 @@ sess.run(init)
 
 for i in range(1000000):
     # training
+    start = time.time()
+
+    # Train the model on X_train and Y_train
+    # Get the time it took to train the model (in seconds)
+
     sess.run(train_step, feed_dict={xs: x_data, ys: y_data})
+    training_time = math.floor(time.time() - start)
     if i % 50 == 0:
         # to see the step improvement
         try:
             ax.lines.remove(lines[0])
         except Exception:
             pass
+        print(training_time)
         prediction_value = sess.run(prediction, feed_dict={xs: x_data})
         # plot the prediction
         lines = ax.plot(x_data, prediction_value, 'r-', lw=1)
