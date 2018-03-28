@@ -5,16 +5,16 @@
 """
 Please note, this code is only for python 3+. If you are using python 2+, please modify the code accordingly.
 """
-
+import time
 ## Keras for deep learning
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.layers import Bidirectional
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 
 ## Scikit learn for mapping metrics
 from sklearn.metrics import mean_squared_error
-
+import math
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,10 +23,7 @@ import csv
 
 import time
 
-from sklearn.preprocessing import MinMaxScaler
-
-df1 = pd.read_csv("btceUSD.csv")
-N=100000
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 import tensorflow as tf
 import numpy as np
@@ -37,31 +34,37 @@ def getminmaxstep(nparry,num):
     return min,max,step
 
 def create_dataset(dataset, look_back=1):
-	dataX, dataY = [], []
-	for i in range(len(dataset)-look_back-1):
-		a = dataset[i:(i+look_back), 0]
-		dataX.append(a)
-		dataY.append(dataset[i + look_back, 0])
-	return np.array(dataX), np.array(dataY)
+    dataX, dataY = [], []
+    for i in range(len(dataset)-look_back-1):
+        a = dataset[i:(i+look_back), 0]
+        dataX.append(a)
+        dataY.append(dataset[i + look_back, 0])
+    return np.array(dataX), np.array(dataY)
 
 def loadata():
-	dataframe = pd.read_csv('btceUSDs.csv', usecols=[1], engine='python')
-	dataset = dataframe.values
-	dataset = dataset.astype('float32')
-	# normalize the dataset
-	scaler = MinMaxScaler(feature_range=(0, 1))
-	dataset = scaler.fit_transform(dataset)
-	# split into train and test sets
-	train_size = int(len(dataset) * 0.8)
-	test_size = len(dataset) - train_size
-	train, test = dataset[0:train_size, :], dataset[train_size:len(dataset), :]
-	# reshape into X=t and Y=t+1
-	look_back = 3
-	trainX, trainY = create_dataset(train, look_back)
-	testX, testY = create_dataset(test, look_back)
-	# reshape input to be [samples, time steps, features]
-	trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
-	testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
+
+    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=10000 )
+    dataset = dataframe.values
+    dataset = dataset.astype('float32')
+
+    # normalize the dataset
+
+    #scaler = MinMaxScaler(feature_range=(0, 1))
+    scaler = StandardScaler().fit(dataset)
+    dataset = scaler.fit_transform(dataset)
+    # split into train and test sets
+    train_size = int(len(dataset) * 0.8)
+    test_size = len(dataset) - train_size
+    train, test = dataset[0:train_size, :], dataset[train_size:len(dataset), :]
+    # reshape into X=t and Y=t+1
+    look_back = 30
+    trainX, trainY = create_dataset(train, look_back)
+    testX, testY = create_dataset(test, look_back)
+    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+    testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
+    return trainX, trainY,testX, testY,scaler
+
+
 
 
 def load_data(filename, sequence_length):
@@ -273,11 +276,11 @@ def fit_model(model, X_train, Y_train, batch_num, num_epoch, val_split):
     model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split)
 
     # Get the time it took to train the model (in seconds)
-    training_time = int(tf.math.floor(time.time() - start))
+    training_time = int(math.floor(time.time() - start))
     return model, training_time
 
 
-def test_model(model, X_test, Y_test, unnormalized_bases):
+def test_model(model, X_test, Y_test, scaler):
     """
     Test the model on the testing data
 
@@ -297,16 +300,19 @@ def test_model(model, X_test, Y_test, unnormalized_bases):
     y_predict = model.predict(X_test)
 
     # Create empty 2D arrays to store unnormalized values
-    real_y_test = np.zeros_like(Y_test)
-    real_y_predict = np.zeros_like(y_predict)
+    #real_y_test = np.zeros_like(Y_test)
+    #real_y_predict = np.zeros_like(y_predict)
 
     # Fill the 2D arrays with the real value and the predicted value by reversing the normalization process
-    for i in range(Y_test.shape[0]):
-        y = Y_test[i]
-        predict = y_predict[i]
-        real_y_test[i] = (y + 1) * unnormalized_bases[i]
-        real_y_predict[i] = (predict + 1) * unnormalized_bases[i]
-
+    # for i in range(Y_test.shape[0]):
+    #     y = Y_test[i]
+    #     predict = y_predict[i]
+    #     real_y_test[i] = (y + 1) * unnormalized_bases[i]
+    #     real_y_predict[i] = (predict + 1) * unnormalized_bases[i]
+    real_y_test=scaler.inverse_transform(Y_test)
+    real_y_predict =scaler.inverse_transform(y_predict)
+    X_test=scaler.inverse_transform(X_test)
+    Y_test = scaler.inverse_transform(Y_test)
     # Plot of the predicted prices versus the real prices
     fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(111)
@@ -316,6 +322,7 @@ def test_model(model, X_test, Y_test, unnormalized_bases):
     ax.set_ylabel("Price (USD)")
     ax.set_xlabel("Time (Days)")
     ax.legend()
+    plt.show()
 
     return y_predict, real_y_test, real_y_predict, fig
 
@@ -358,13 +365,15 @@ def price_change(Y_daybefore, Y_test, y_predict):
     plt.show()
 
     return Y_daybefore, Y_test, delta_predict, delta_real, fig
+x_data, y_data,testX, testY,scaler=loadata()
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-# model=initialize_model(x_data,1000,0.2,'linear', 'mse', 'adam')
-# print (model.summary())
-# model, training_time = fit_model(model, y_data, x_data, 1024, 100, .05)
-# # #Print the training time
+# model=initialize_model(x_data,30,0.2,'linear', 'mse', 'adam')
+# # print (model.summary())
+# model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
+#model = load_model('my_model.h5')
+#test_model(model,testX,testY,scaler)
 # # print ("Training time", training_time, "seconds")
+#model.save('my_model.h5')
 
-loadata()
