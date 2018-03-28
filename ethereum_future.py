@@ -1,3 +1,12 @@
+
+# Youtube video tutorial: https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg
+# Youku video tutorial: http://i.youku.com/pythontutorial
+
+"""
+Please note, this code is only for python 3+. If you are using python 2+, please modify the code accordingly.
+"""
+
+## Keras for deep learning
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.layers import Bidirectional
@@ -6,21 +15,27 @@ from keras.models import Sequential
 ## Scikit learn for mapping metrics
 from sklearn.metrics import mean_squared_error
 
-#for logging
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import csv
+
 import time
 
-##matrix math
+df1 = pd.read_csv("btceUSD.csv")
+N=100
+
+import tensorflow as tf
 import numpy as np
-import math
-
-##plotting
-import matplotlib.pyplot as plt
-
-##data processing
-import pandas as pd
+def getminmaxstep(nparry,num):
+    min=nparry.min()
+    max=nparry.max()
+    step=(max-min)/num
+    return min,max,step
 
 
-def initialize_model(window_size, dropout_value, activation_function, loss_function, optimizer):
+def initialize_model(X_train,window_size, dropout_value, activation_function, loss_function, optimizer):
     """
     Initializes and creates the model to be used
 
@@ -58,7 +73,6 @@ def initialize_model(window_size, dropout_value, activation_function, loss_funct
     # Set loss function and optimizer
     model.compile(loss=loss_function, optimizer=optimizer)
 
-
     return model
 
 
@@ -85,7 +99,7 @@ def fit_model(model, X_train, Y_train, batch_num, num_epoch, val_split):
     model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split)
 
     # Get the time it took to train the model (in seconds)
-    training_time = int(math.floor(time.time() - start))
+    training_time = int(tf.math.floor(time.time() - start))
     return model, training_time
 
 
@@ -130,3 +144,43 @@ def test_model(model, X_test, Y_test, unnormalized_bases):
     ax.legend()
 
     return y_predict, real_y_test, real_y_predict, fig
+
+
+def price_change(Y_daybefore, Y_test, y_predict):
+    """
+    Calculate the percent change between each value and the day before
+
+    Arguments:
+    Y_daybefore -- A tensor of shape (267,) that represents the prices of each day before each price in Y_test
+    Y_test -- A tensor of shape (267,) that represents the normalized y values of the testing data
+    y_predict -- A tensor of shape (267,) that represents the normalized y values of the model's predictions
+
+    Returns:
+    Y_daybefore -- A tensor of shape (267, 1) that represents the prices of each day before each price in Y_test
+    Y_test -- A tensor of shape (267, 1) that represents the normalized y values of the testing data
+    delta_predict -- A tensor of shape (267, 1) that represents the difference between predicted and day before values
+    delta_real -- A tensor of shape (267, 1) that represents the difference between real and day before values
+    fig -- A plot representing percent change in bitcoin price per day,
+    """
+    # Reshaping Y_daybefore and Y_test
+    Y_daybefore = np.reshape(Y_daybefore, (-1, 1))
+    Y_test = np.reshape(Y_test, (-1, 1))
+
+    # The difference between each predicted value and the value from the day before
+    delta_predict = (y_predict - Y_daybefore) / (1 + Y_daybefore)
+
+    # The difference between each true value and the value from the day before
+    delta_real = (Y_test - Y_daybefore) / (1 + Y_daybefore)
+
+    # Plotting the predicted percent change versus the real percent change
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111)
+    ax.set_title("Percent Change in Bitcoin Price Per Day")
+    plt.plot(delta_predict, color='green', label='Predicted Percent Change')
+    plt.plot(delta_real, color='red', label='Real Percent Change')
+    plt.ylabel("Percent Change")
+    plt.xlabel("Time (Days)")
+    ax.legend()
+    plt.show()
+
+    return Y_daybefore, Y_test, delta_predict, delta_real, fig
