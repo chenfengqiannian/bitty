@@ -1,4 +1,6 @@
-tensorflow
+tensorflow-gpu
 numpy
 pandas
 matplotlib
+keras
+sklearn
