@@ -43,7 +43,7 @@ def create_dataset(dataset, look_back=1):
 
 def loadata():
 
-    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=10000 )
+    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=100000 )
     dataset = dataframe.values
     dataset = dataset.astype('float32')
 
