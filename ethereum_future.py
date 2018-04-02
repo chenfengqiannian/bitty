@@ -43,7 +43,7 @@ def create_dataset(dataset, look_back=1):
 
 def loadata():
 
-    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=100000 )
+    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=1000)
     dataset = dataframe.values
     dataset = dataset.astype('float32')
 
@@ -365,15 +365,49 @@ def price_change(Y_daybefore, Y_test, y_predict):
     plt.show()
 
     return Y_daybefore, Y_test, delta_predict, delta_real, fig
+def predict_point_by_point(model, data):
+    #每次只预测1步长
+    predicted = model.predict(data)
+    predicted = np.reshape(predicted, (predicted.size,))
+    return predicted
+def predict_sequence_full(model, data, seq_len):
+    #根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
+    curr_frame = data[0]
+    predicted = []
+    for i in range(len(data)):
+        predicted.append(model.predict(curr_frame[np.newaxis,:,:])[0,0])
+        curr_frame = curr_frame[1:]
+        curr_frame = np.insert(curr_frame, [seq_len-1], predicted[-1], axis=0)
+    return predicted
 x_data, y_data,testX, testY,scaler=loadata()
+model = load_model('my_model.h5')
+out=predict_sequence_full(model,x_data,30)
+fig = plt.figure(figsize=(10, 6))
+ax = fig.add_subplot(111)
+y_data=scaler.inverse_transform(y_data)
+out=scaler.inverse_transform(out)
+
+plt.plot(out, color='red', label='pre Percent Change')
+plt.plot(y_data, color='green', label='Real Percent Change')
+plt.ylabel("Percent Change")
+plt.xlabel("Time (Days)")
+ax.legend()
+plt.show()
+
+
+
+
+
+
+
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
 # model=initialize_model(x_data,30,0.2,'linear', 'mse', 'adam')
 # # print (model.summary())
 # model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
-model = load_model('my_model.h5')
-test_model(model,testX,testY,scaler)
+#model = load_model('my_model.h5')
+#test_model(model,testX,testY,scaler)
 # # print ("Training time", training_time, "seconds")
 #model.save('my_model.h5')
 
