@@ -41,7 +41,7 @@ def create_dataset(dataset, look_back=1):
         dataY.append(dataset[i + look_back, 0])
     return np.array(dataX), np.array(dataY)
 
-def loadata():
+def loadata(look_back):
 
     dataframe = pd.read_csv('btcusdtbitfinex.csv', usecols=[1], engine='python')
     dataset = dataframe.values
@@ -57,7 +57,7 @@ def loadata():
     test_size = len(dataset) - train_size
     train, test = dataset[0:train_size, :], dataset[train_size:len(dataset), :]
     # reshape into X=t and Y=t+1
-    look_back = 30
+
     trainX, trainY = create_dataset(train, look_back)
     testX, testY = create_dataset(test, look_back)
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
@@ -379,18 +379,18 @@ def predict_sequence_full(model, data, seq_len):
         curr_frame = np.insert(curr_frame, [seq_len-1], predicted[-1], axis=0)
     return predicted
 
-x_data, y_data,testX, testY,scaler=loadata()
+x_data, y_data,testX, testY,scaler=loadata(50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-model=initialize_model(x_data,30,0.2,'linear', 'mse', 'adam')
+model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
 print (model.summary())
 model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
 #model = load_model('my_model.h5')
 
 test_model(model,testX,testY,scaler)
 print ("Training time", training_time, "seconds")
-model.save('my_model2.h5')
+model.save('my_model3.h5')
 # for i in range(100):
 #
 #     # fig = plt.figure(figsize=(10, 6))
