@@ -43,7 +43,7 @@ def create_dataset(dataset, look_back=1):
 
 def loadata():
 
-    dataframe = pd.read_csv('btceUSD.csv', usecols=[1], engine='python',nrows=1000 )
+    dataframe = pd.read_csv('btcusdtbitfinex.csv', usecols=[1], engine='python')
     dataset = dataframe.values
     dataset = dataset.astype('float32')
 
@@ -383,14 +383,14 @@ x_data, y_data,testX, testY,scaler=loadata()
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-#model=initialize_model(x_data,30,0.2,'linear', 'mse', 'adam')
-#print (model.summary())
-#model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
-model = load_model('my_model.h5')
+model=initialize_model(x_data,30,0.2,'linear', 'mse', 'adam')
+print (model.summary())
+model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
+#model = load_model('my_model.h5')
 
 test_model(model,testX,testY,scaler)
-#print ("Training time", training_time, "seconds")
-#model.save('my_model.h5')
+print ("Training time", training_time, "seconds")
+model.save('my_model2.h5')
 # for i in range(100):
 #
 #     # fig = plt.figure(figsize=(10, 6))
