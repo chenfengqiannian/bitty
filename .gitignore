@@ -92,5 +92,8 @@ ENV/
 .ropeproject
 .DS_Store
 .idea/
+btceUSD.csv
+a.csv
+lstm.csv
 
 
