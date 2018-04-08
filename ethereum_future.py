@@ -5,6 +5,7 @@
 """
 Please note, this code is only for python 3+. If you are using python 2+, please modify the code accordingly.
 """
+import argparse
 import time
 ## Keras for deep learning
 from keras.layers.core import Dense, Activation, Dropout
@@ -27,11 +28,6 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 import tensorflow as tf
 import numpy as np
-def getminmaxstep(nparry,num):
-    min=nparry.min()
-    max=nparry.max()
-    step=(max-min)/num
-    return min,max,step
 
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
@@ -379,30 +375,18 @@ def predict_sequence_full(model, data, seq_len):
         curr_frame = np.insert(curr_frame, [seq_len-1], predicted[-1], axis=0)
     return predicted
 
+
 x_data, y_data,testX, testY,scaler=loadata(50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-print (model.summary())
-model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
-#model = load_model('my_model.h5')
+#model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+#print (model.summary())
+#model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
+model = load_model('my_model3.h5')
 
 test_model(model,testX,testY,scaler)
-print ("Training time", training_time, "seconds")
-model.save('my_model3.h5')
-# for i in range(100):
-#
-#     # fig = plt.figure(figsize=(10, 6))
-#     # ax = fig.add_subplot(111)
-#     # real_y_test = scaler.inverse_transform(x_data)
-#     # real_y_predict = scaler.inverse_transform(x_data)
-#     # ax.set_title("Percent Change in Bitcoin Price Per Day")
-#     # plt.plot(real_y_test, color='green', label='Predicted Percent Change')
-#     # plt.plot(real_y_predict, color='red', label='Real Percent Change')
-#     # plt.ylabel("Percent Change")
-#     # plt.xlabel("Time (Days)")
-#     # ax.legend()
-#     # plt.show()
-#
-#
+# ("Training time", training_time, "seconds")
+#model.save('my_model3.h5')
+
+
