@@ -30,9 +30,9 @@ import csv
 
 import time
 import math
-df1 = pd.read_csv("btceUSD.csv")
+df1 = pd.read_csv("btcusdtbitfinex.csv")
 
-N=100
+
 
 import tensorflow as tf
 import numpy as np
@@ -135,7 +135,7 @@ def create_dataset(dataset, look_back=1):
 	return np.array(dataX), np.array(dataY)
 
 def loadata():
-	dataframe = pd.read_csv('btceUSDs.csv', usecols=[1], engine='python')
+	dataframe = pd.read_csv('btcusdtbitfinex.csv', usecols=[1], engine='python')
 	dataset = dataframe.values
 	dataset = dataset.astype('float32')
 	# normalize the dataset

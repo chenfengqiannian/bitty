@@ -96,4 +96,9 @@ btceUSDs.csv
 lstm.csv
 *.iml
 *.xml
+.idea/
+btceUSD.csv
+a.csv
+lstm.csv
+
 
