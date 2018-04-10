@@ -1,4 +1,3 @@
-
 # Youtube video tutorial: https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg
 # Youku video tutorial: http://i.youku.com/pythontutorial
 
@@ -29,23 +28,24 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import tensorflow as tf
 import numpy as np
 
+
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
-    for i in range(len(dataset)-look_back-1):
-        a = dataset[i:(i+look_back), 0]
+    for i in range(len(dataset) - look_back - 1):
+        a = dataset[i:(i + look_back), 0]
         dataX.append(a)
         dataY.append(dataset[i + look_back, 0])
     return np.array(dataX), np.array(dataY)
 
-def loadata(look_back):
 
-    dataframe = pd.read_csv('btcusdtbitfinex.csv', usecols=[1], engine='python')
+def loadata(filename,look_back):
+    dataframe = pd.read_csv(filename, usecols=[1], engine='python')
     dataset = dataframe.values
     dataset = dataset.astype('float32')
 
     # normalize the dataset
 
-    #scaler = MinMaxScaler(feature_range=(0, 1))
+    # scaler = MinMaxScaler(feature_range=(0, 1))
     scaler = StandardScaler().fit(dataset)
     dataset = scaler.fit_transform(dataset)
     # split into train and test sets
@@ -58,9 +58,8 @@ def loadata(look_back):
     testX, testY = create_dataset(test, look_back)
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
     testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
-    return trainX, trainY,testX, testY,scaler
 
-
+    return trainX, trainY, testX, testY, scaler
 
 
 def load_data(filename, sequence_length):
@@ -152,63 +151,65 @@ def load_data(filename, sequence_length):
     unnormalized_bases -- A tensor of shape (267,) that will be used to get the true prices from the normalized ones
     window_size -- An integer that represents how many days of X values the model can look at at once
     """
-    #Read the data file
-    raw_data = pd.read_csv(filename, dtype = float).values
+    # Read the data file
+    raw_data = pd.read_csv(filename, dtype=float).values
 
-    #Change all zeros to the number before the zero occurs
+    # Change all zeros to the number before the zero occurs
     for x in range(0, raw_data.shape[0]):
         for y in range(0, raw_data.shape[1]):
-            if(raw_data[x][y] == 0):
-                raw_data[x][y] = raw_data[x-1][y]
+            if (raw_data[x][y] == 0):
+                raw_data[x][y] = raw_data[x - 1][y]
 
-    #Convert the file to a list
+    # Convert the file to a list
     data = raw_data.tolist()
 
-    #Convert the data to a 3D array (a x b x c)
-    #Where a is the number of days, b is the window size, and c is the number of features in the data file
+    # Convert the data to a 3D array (a x b x c)
+    # Where a is the number of days, b is the window size, and c is the number of features in the data file
     result = []
     for index in range(len(data) - sequence_length):
         result.append(data[index: index + sequence_length])
 
-    #Normalizing data by going through each window
-    #Every value in the window is divided by the first value in the window, and then 1 is subtracted
+    # Normalizing data by going through each window
+    # Every value in the window is divided by the first value in the window, and then 1 is subtracted
     d0 = np.array(result)
     dr = np.zeros_like(d0)
-    dr[:,1:,:] = d0[:,1:,:] / d0[:,0:1,:] - 1
+    dr[:, 1:, :] = d0[:, 1:, :] / d0[:, 0:1, :] - 1
 
-    #Keeping the unnormalized prices for Y_test
-    #Useful when graphing bitcoin price over time later
+    # Keeping the unnormalized prices for Y_test
+    # Useful when graphing bitcoin price over time later
     start = 2400
     end = int(dr.shape[0] + 1)
-    unnormalized_bases = d0[start:end,0:1,20]
+    unnormalized_bases = d0[start:end, 0:1, 20]
 
-    #Splitting data set into training (First 90% of data points) and testing data (last 10% of data points)
+    # Splitting data set into training (First 90% of data points) and testing data (last 10% of data points)
     split_line = round(0.9 * dr.shape[0])
     training_data = dr[:int(split_line), :]
 
-    #Shuffle the data
+    # Shuffle the data
     np.random.shuffle(training_data)
 
-    #Training Data
+    # Training Data
     X_train = training_data[:, :-1]
     Y_train = training_data[:, -1]
     Y_train = Y_train[:, 20]
 
-    #Testing data
+    # Testing data
     X_test = dr[int(split_line):, :-1]
     Y_test = dr[int(split_line):, 49, :]
     Y_test = Y_test[:, 20]
 
-    #Get the day before Y_test's price
+    # Get the day before Y_test's price
     Y_daybefore = dr[int(split_line):, 48, :]
     Y_daybefore = Y_daybefore[:, 20]
 
-    #Get window size and sequence length
+    # Get window size and sequence length
     sequence_length = sequence_length
-    window_size = sequence_length - 1 #because the last value is reserved as the y value
+    window_size = sequence_length - 1  # because the last value is reserved as the y value
 
     return X_train, Y_train, X_test, Y_test, Y_daybefore, unnormalized_bases, window_size
-def initialize_model(X_train,window_size, dropout_value, activation_function, loss_function, optimizer):
+
+
+def initialize_model(X_train, window_size, dropout_value, activation_function, loss_function, optimizer):
     """
     Initializes and creates the model to be used
 
@@ -227,7 +228,7 @@ def initialize_model(X_train,window_size, dropout_value, activation_function, lo
     model = Sequential()
 
     # First recurrent layer with dropout
-    model.add(Bidirectional(LSTM(window_size, return_sequences=True), input_shape=(window_size, X_train.shape[-1]) ))
+    model.add(Bidirectional(LSTM(window_size, return_sequences=True), input_shape=(window_size, X_train.shape[-1])))
     model.add(Dropout(dropout_value))
 
     # Second recurrent layer with dropout
@@ -296,8 +297,8 @@ def test_model(model, X_test, Y_test, scaler):
     y_predict = model.predict(X_test)
 
     # Create empty 2D arrays to store unnormalized values
-    #real_y_test = np.zeros_like(Y_test)
-    #real_y_predict = np.zeros_like(y_predict)
+    # real_y_test = np.zeros_like(Y_test)
+    # real_y_predict = np.zeros_like(y_predict)
 
     # Fill the 2D arrays with the real value and the predicted value by reversing the normalization process
     # for i in range(Y_test.shape[0]):
@@ -305,9 +306,9 @@ def test_model(model, X_test, Y_test, scaler):
     #     predict = y_predict[i]
     #     real_y_test[i] = (y + 1) * unnormalized_bases[i]
     #     real_y_predict[i] = (predict + 1) * unnormalized_bases[i]
-    real_y_test=scaler.inverse_transform(Y_test)
-    real_y_predict =scaler.inverse_transform(y_predict)
-    X_test=scaler.inverse_transform(X_test)
+    real_y_test = scaler.inverse_transform(Y_test)
+    real_y_predict = scaler.inverse_transform(y_predict)
+    X_test = scaler.inverse_transform(X_test)
     Y_test = scaler.inverse_transform(Y_test)
     # Plot of the predicted prices versus the real prices
     fig = plt.figure(figsize=(10, 5))
@@ -361,32 +362,41 @@ def price_change(Y_daybefore, Y_test, y_predict):
     plt.show()
 
     return Y_daybefore, Y_test, delta_predict, delta_real, fig
-def predict_sequence_full(model, data, seq_len):
-    #根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
-    curr_frame = data[0]
+
+
+def predict_sequence(model, test_data, seq_len):
+    # 根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
+    curr_frame = test_data[-1]
     predicted = []
-    a=0
-    for i in range(len(data)):
-        print(i)
-        a=time.time()-a
-        print(a)
-        predicted.append(model.predict(curr_frame[np.newaxis,:,:])[0,0])
+    a = 0
+    for i in range(100):
+
+        predicted.append(model.predict(curr_frame[np.newaxis, :, :])[0, 0])
         curr_frame = curr_frame[1:]
-        curr_frame = np.insert(curr_frame, [seq_len-1], predicted[-1], axis=0)
+        curr_frame = np.insert(curr_frame, [seq_len - 1], predicted[-1], axis=0)
+    predicted=scaler.inverse_transform(predicted)
     return predicted
 
 
-x_data, y_data,testX, testY,scaler=loadata(50)
+x_data, y_data, testX, testY, scaler = loadata('BTCUSD.csv',50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-#model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-#print (model.summary())
-#model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
+# model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+# print (model.summary())
+# model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
 model = load_model('my_model3.h5')
+out=predict_sequence(model,testX,50)
+print(out)
+fig = plt.figure(figsize=(10, 5))
+ax = fig.add_subplot(111)
+ax.set_title("Bitcoin Price Over Time")
 
-test_model(model,testX,testY,scaler)
+plt.plot(out, color='red', label='Price')
+ax.set_ylabel("Price (USD)")
+ax.set_xlabel("Time (Days)")
+ax.legend()
+plt.show()
+#test_model(model, testX, testY, scaler)
 # ("Training time", training_time, "seconds")
-#model.save('my_model3.h5')
-
-
+# model.save('my_model3.h5')
