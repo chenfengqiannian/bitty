@@ -405,6 +405,7 @@ class MarketSimulation(object):
     currentPosition=0.0
     trueData=None
     model=None
+    supplementaryData=None
     def __init__(self,totalPrice=None,filename=None):
         self.totalPrice=totalPrice
         self.filename=filename
@@ -422,13 +423,22 @@ class MarketSimulation(object):
         self.trueData = np.hstack((timestamp,no_timestamp))
 
     def insert_data(self):
+        self.supplementaryData=None
         for i in range(1,self.trueData.shape[0]-2):
             poor=self.trueData[i,0]-self.trueData[i-1,0]
             supplementary=None
             for j in range(self.trueData.shape[1]):
-                supplementary=np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)
-                supplementary=supplementary.T
-                self.trueData=np.insert(self.trueData,j,supplementary)
+                if supplementary is None:
+                    supplementary=np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)
+                else:
+                    supplementary=np.vstack((supplementary,np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)))
+            supplementary=supplementary.T
+            if self.supplementaryData is None:
+                self.supplementaryData=np.vstack((self.trueData[i-1,:],supplementary,self.trueData[i,:]))
+            else:
+                self.supplementaryData = np.vstack((self.supplementaryData[:i - 1, :], supplementary,self.trueData[i,:]))
+            print(self.supplementaryData)
+
 
 
 a=MarketSimulation(filename="BTCUSD.csv")
