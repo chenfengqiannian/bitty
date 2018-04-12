@@ -6,9 +6,8 @@ Please note, this code is only for python 3+. If you are using python 2+, please
 """
 import argparse
 import time
+
 ## Keras for deep learning
-gas_price=0.071
-trading_time=900
 
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
@@ -27,9 +26,11 @@ import csv
 import time
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
+import logging
+import sys
 import tensorflow as tf
 import numpy as np
+from log import log
 
 
 def create_dataset(dataset, look_back=1):
@@ -41,7 +42,7 @@ def create_dataset(dataset, look_back=1):
     return np.array(dataX), np.array(dataY)
 
 
-def loadata(filename,look_back):
+def loadata(filename, look_back):
     dataframe = pd.read_csv(filename, usecols=[1], engine='python')
     dataset = dataframe.values
     dataset = dataset.astype('float32')
@@ -367,7 +368,7 @@ def price_change(Y_daybefore, Y_test, y_predict):
     return Y_daybefore, Y_test, delta_predict, delta_real, fig
 
 
-def predict_sequence(model, test_data, seq_len,step,scaler):
+def predict_sequence(model, test_data, seq_len, step, scaler):
     # 根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
     curr_frame = test_data[-1]
     predicted = []
@@ -376,11 +377,11 @@ def predict_sequence(model, test_data, seq_len,step,scaler):
         predicted.append(model.predict(curr_frame[np.newaxis, :, :])[0, 0])
         curr_frame = curr_frame[1:]
         curr_frame = np.insert(curr_frame, [seq_len - 1], predicted[-1], axis=0)
-    predicted=scaler.inverse_transform(predicted)
+    predicted = scaler.inverse_transform(predicted)
     return predicted
 
 
-#x_data, y_data, testX, testY, scaler = loadata('BTCUSD.csv',50)
+# x_data, y_data, testX, testY, scaler = loadata('BTCUSD.csv',50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
@@ -399,67 +400,186 @@ def show_image(data):
     plt.show()
 
 
-class MarketSimulation(object):
-    totalPrice=None
-    hasPriceNow=None
-    currentPosition=0.0
-    trueData=None
-    model=None
-    supplementaryData=None
-    def __init__(self,totalPrice=None,filename=None):
-        self.totalPrice=totalPrice
-        self.filename=filename
-    def handel(self,data,timestamp):
-        pass
+class SupplementaryData(object):
+    trueData = None
+    model = None
+    supplementaryData = None
 
-        #predict_list = predict_sequence(self.model, data, 50)
+    def __init__(self, filename=None):
+
+        self.filename = filename
+
+        # predict_list = predict_sequence(self.model, data, 50)
+
     def load_data(self):
-        dataframe = pd.read_csv(self.filename,engine='python',names = ["timestamp","price","volume"])
-        self.trueData=dataframe.as_matrix()
+        dataframe = pd.read_csv(self.filename, engine='c', names=["timestamp", "price", "volume"])
+        self.trueData = dataframe.as_matrix()
 
     def timestamp_to_int(self):
-        timestamp=self.trueData[:,0].astype(int).T.reshape(13084,1)
-        no_timestamp=self.trueData[:,1:]
-        self.trueData = np.hstack((timestamp,no_timestamp))
+        timestamp = self.trueData[:, 0].astype(int).T.reshape(13084, 1)
+        no_timestamp = self.trueData[:, 1:]
+        self.trueData = np.hstack((timestamp, no_timestamp))
 
     def insert_data(self):
-        self.supplementaryData=None
-        for i in range(1,self.trueData.shape[0]-2):
-            poor=self.trueData[i,0]-self.trueData[i-1,0]
-            supplementary=None
+        supplementaryList = list()
+        supplementaryList.append(self.trueData[0, :].reshape(1, 3))
+        for i in range(1, self.trueData.shape[0]):
+            poor = self.trueData[i, 0] - self.trueData[i - 1, 0]
+            supplementary = None
             for j in range(self.trueData.shape[1]):
                 if supplementary is None:
-                    supplementary=np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)
+                    supplementary = np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)
                 else:
-                    supplementary=np.vstack((supplementary,np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)))
-            supplementary=supplementary.T
-            if self.supplementaryData is None:
-                self.supplementaryData=np.vstack((self.trueData[i-1,:],supplementary,self.trueData[i,:]))
-            else:
-                self.supplementaryData = np.vstack((self.supplementaryData[:i - 1, :], supplementary,self.trueData[i,:]))
-            print(self.supplementaryData)
+                    supplementary = np.vstack(
+                        (supplementary, np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)))
+            supplementary = supplementary.T
+            supplementary = supplementary[:-1, :]
+
+            supplementaryList.append(supplementary)
+        supplementaryList.append(self.trueData[-1].reshape(1, 3))
+        self.supplementaryData = np.vstack(tuple(supplementaryList))
+
+
+class TradingException(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+
+
+class LackBalanceException(TradingException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+
+
+class MarketSimulation(object):
+    transactionRecords=list()
+    USDTAmount = 0.0
+    BTCAmount = 0.0
+    currentTimestamp = 0.0
+    data = None
+    model = None
+    startTimestamp = 0.0
+    endTimestamp = 0.0
+    gas_price = 0.0
+    trading_time = 900
+
+    businessHistory = list()
+
+
+    def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0):
+        self.data = data
+        self.model = model
+        self.USDTAmount = USDTAmount
+        self.BTCAmount = BTCAmount
+        self.startTimestamp = int(self.data[0, 0])
+        self.endTimestamp = int(self.data[-1, 0])
+        self.transactionRecords.append({"action": -1,
+                                        "BTCChange": 0,
+                                        "USDTChange": 0,
+                                        "BTCNow": BTCAmount,
+                                        "USDTNow": USDTAmount,
+                                        "timestamp":self.startTimestamp,
+                                        "price": data[0,1],
+                                        "gas_price": self.gas_price
+                                        })
 
 
 
-a=MarketSimulation(filename="BTCUSD.csv")
+
+
+    def run(self):
+        self.setup()
+        for i in range(self.startTimestamp, self.endTimestamp):
+            self.handel(i)
+        self.finish()
+
+
+    def buy(self, count, timestamp):
+        self.dealBase(count, timestamp, 0)
+
+    def sell(self, count, timestamp):
+        self.dealBase(count, timestamp, 1)
+
+    def dealBase(self, count, timestamp, action):
+        index = timestamp - self.startTimestamp
+        price = self.data[index, 1]
+        totalPrices = (count * price)+self.gas_price
+        minPrice = min(self.USDTAmount, totalPrices)
+        if action == 0:
+            minPrice = min(self.USDTAmount, totalPrices)
+            realCount = self.accuracy(minPrice / price)
+            self.BTCAmount = self.accuracy(self.BTCAmount + realCount)
+            self.USDTAmount = self.accuracy(self.USDTAmount - minPrice)
+
+        elif action == 1:
+            minCount = min(self.BTCAmount, count)
+            realPrice = minCount * price
+            self.BTCAmount = self.accuracy(self.BTCAmount - minCount)
+            self.USDTAmount =self.accuracy( self.USDTAmount + realPrice)
+        transactionRecords={"action": action,
+         "BTCChange": realCount if action == 0 else -minCount,
+         "USDTChange": -minPrice if action == 0 else realPrice,
+         "BTCNow": self.BTCAmount,
+         "USDTNow": self.USDTAmount,
+         "timestamp": timestamp,
+         "price": price,
+         "gas_price": self.gas_price
+         }
+        self.transactionRecords.append(transactionRecords)
+        log.info(transactionRecords)
+
+
+    def accuracy(self,num):
+        return round(num,8)
+
+    def equivalentUSDT(self,price=None,USDT=None,BTC=None):
+        if price==None:
+            price=self.data[-1,1]
+        if USDT==None:
+            USDT=self.USDTAmount
+        if BTC==None:
+            BTC=self.BTCAmount
+        return self.accuracy(BTC*price)+USDT
+    def earnings(self,USDT1,USDT2):
+        return self.accuracy(USDT1-USDT2)
+    def earningsGains(self,USDT1,USDT2):
+        return self.accuracy(self.earnings(USDT1,USDT2)/USDT1)
+    def nowEarnings(self,type=0):
+        totalUSDT=self.equivalentUSDT(self.transactionRecords[-1]["BTCNow"],USDT=self.transactionRecords[0]["USDTNow"])
+        initUSDT=self.transactionRecords[-1]["USDTNow"]
+        if type==0:
+            return self.earnings(initUSDT,totalUSDT)
+        elif type==1:
+            return self.earningsGains(initUSDT,totalUSDT)
+
+    def handel(self, timestamp):
+        pass
+    def setup(self):
+        # print(np.max(self.data[:,1],0))
+        # maxindex=np.argmax(self.data[:, 1], 0)
+        # print(np.min(self.data[:, 1], 0))
+        # minindex=np.argmin(self.data[:, 1], 0)
+        # print(self.data[maxindex,0])
+        # print(self.data[minindex, 0])
+
+        pass
+
+
+
+    def finish(self):
+        print(self.nowEarnings())
+        print(self.nowEarnings(1))
+
+a = SupplementaryData(filename="BTCUSD.csv")
 a.load_data()
 a.timestamp_to_int()
 a.insert_data()
-
-
-
-
-
-
-
-
-
-
+b = MarketSimulation(a.supplementaryData, USDTAmount=100.0)
+b.run()
 
 # model = load_model('my_model3.h5')
 # predict_list=predict_sequence(model,testX,50)
 # print(predict_list)
 # show_image(predict_list)
-#test_model(model, testX, testY, scaler)
+# test_model(model, testX, testY, scaler)
 # ("Training time", training_time, "seconds")
 # model.save('my_model3.h5')
