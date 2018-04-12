@@ -7,6 +7,9 @@ Please note, this code is only for python 3+. If you are using python 2+, please
 import argparse
 import time
 ## Keras for deep learning
+gas_price=0.071
+trading_time=900
+
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.layers import Bidirectional
@@ -364,13 +367,12 @@ def price_change(Y_daybefore, Y_test, y_predict):
     return Y_daybefore, Y_test, delta_predict, delta_real, fig
 
 
-def predict_sequence(model, test_data, seq_len):
+def predict_sequence(model, test_data, seq_len,step,scaler):
     # 根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
     curr_frame = test_data[-1]
     predicted = []
     a = 0
-    for i in range(100):
-
+    for i in range(step):
         predicted.append(model.predict(curr_frame[np.newaxis, :, :])[0, 0])
         curr_frame = curr_frame[1:]
         curr_frame = np.insert(curr_frame, [seq_len - 1], predicted[-1], axis=0)
@@ -378,25 +380,86 @@ def predict_sequence(model, test_data, seq_len):
     return predicted
 
 
-x_data, y_data, testX, testY, scaler = loadata('BTCUSD.csv',50)
+#x_data, y_data, testX, testY, scaler = loadata('BTCUSD.csv',50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
 # model=initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
 # print (model.summary())
 # model, training_time = fit_model(model, x_data, y_data, 1024, 100, .05)
-model = load_model('my_model3.h5')
-out=predict_sequence(model,testX,50)
-print(out)
-fig = plt.figure(figsize=(10, 5))
-ax = fig.add_subplot(111)
-ax.set_title("Bitcoin Price Over Time")
 
-plt.plot(out, color='red', label='Price')
-ax.set_ylabel("Price (USD)")
-ax.set_xlabel("Time (Days)")
-ax.legend()
-plt.show()
+def show_image(data):
+    fig = plt.figure(figsize=(10, 5))
+    ax = fig.add_subplot(111)
+    ax.set_title("Bitcoin Price Over Time")
+    plt.plot(data, color='red', label='Price')
+    ax.set_ylabel("Price (USD)")
+    ax.set_xlabel("Time (Days)")
+    ax.legend()
+    plt.show()
+
+
+class MarketSimulation(object):
+    totalPrice=None
+    hasPriceNow=None
+    currentPosition=0.0
+    trueData=None
+    model=None
+    supplementaryData=None
+    def __init__(self,totalPrice=None,filename=None):
+        self.totalPrice=totalPrice
+        self.filename=filename
+    def handel(self,data,timestamp):
+        pass
+
+        #predict_list = predict_sequence(self.model, data, 50)
+    def load_data(self):
+        dataframe = pd.read_csv(self.filename,engine='python',names = ["timestamp","price","volume"])
+        self.trueData=dataframe.as_matrix()
+
+    def timestamp_to_int(self):
+        timestamp=self.trueData[:,0].astype(int).T.reshape(13084,1)
+        no_timestamp=self.trueData[:,1:]
+        self.trueData = np.hstack((timestamp,no_timestamp))
+
+    def insert_data(self):
+        self.supplementaryData=None
+        for i in range(1,self.trueData.shape[0]-2):
+            poor=self.trueData[i,0]-self.trueData[i-1,0]
+            supplementary=None
+            for j in range(self.trueData.shape[1]):
+                if supplementary is None:
+                    supplementary=np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)
+                else:
+                    supplementary=np.vstack((supplementary,np.linspace(self.trueData[i - 1, j], self.trueData[i, j], poor + 1)))
+            supplementary=supplementary.T
+            if self.supplementaryData is None:
+                self.supplementaryData=np.vstack((self.trueData[i-1,:],supplementary,self.trueData[i,:]))
+            else:
+                self.supplementaryData = np.vstack((self.supplementaryData[:i - 1, :], supplementary,self.trueData[i,:]))
+            print(self.supplementaryData)
+
+
+
+a=MarketSimulation(filename="BTCUSD.csv")
+a.load_data()
+a.timestamp_to_int()
+a.insert_data()
+
+
+
+
+
+
+
+
+
+
+
+# model = load_model('my_model3.h5')
+# predict_list=predict_sequence(model,testX,50)
+# print(predict_list)
+# show_image(predict_list)
 #test_model(model, testX, testY, scaler)
 # ("Training time", training_time, "seconds")
 # model.save('my_model3.h5')
