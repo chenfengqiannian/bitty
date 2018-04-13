@@ -27,6 +27,16 @@ import signal
 if __name__=="__main__":
     import sys
     coin_type=sys.argv[1]
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("coin_type",help="coin_type",type=str)
+    parser.add_argument("--name", help="save filename", type=str)
+    args = parser.parse_args()
+    name=args.name
+    coin_type=args.coin_type
+    if args.name==None:
+        name=coin_type
+
     def _connect(self):
         """Creates a websocket connection.
 
@@ -89,13 +99,13 @@ if __name__=="__main__":
     ticker_q = wss.tickers(coin_type)  # returns a Queue object for the pair.
 
 
-    with open(coin_type+".csv", "a+") as csvfile:
+    with open(name+".csv", "a+") as csvfile:
         while True:
             date=ticker_q.get()
             datelist=list()
             datelist.append(str(date[1]))
-            datelist.append(str(date[0][0][0]))
-            datelist.append(str(date[0][0][7]))
+            datelist.append(str(date[0][0]))
+            datelist.append(str(date[0][7]))
             csvfile.write(",".join(datelist)+"\n")
             csvfile.flush()
             print(datelist)
