@@ -8,7 +8,7 @@ import argparse
 import time
 
 ## Keras for deep learning
-
+from keras.callbacks import TensorBoard
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.layers import Bidirectional
@@ -45,10 +45,13 @@ class LSTMmodel(object):
         return np.array(dataX), np.array(dataY)
 
 
-    def loadata(self,data, look_back):
-        #dataframe = pd.read_csv(data, usecols=[1], engine='c')
-        dataset = data
-        dataset = dataset.astype('float32')
+    def loadata(self,data=None,file_name=None,look_back=5):
+        if file_name:
+            dataframe = pd.read_csv(file_name, usecols=[1], engine='c')
+            dataset=dataframe.as_matrix()
+        else:
+            dataset = data[:,1][:,np.newaxis]
+            dataset = dataset.astype('float32')
 
         # normalize the dataset
 
@@ -130,7 +133,7 @@ class LSTMmodel(object):
         start = time.time()
 
         # Train the model on X_train and Y_train
-        model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split)
+        model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split,callbacks=[TensorBoard(log_dir='./logs')])
 
         # Get the time it took to train the model (in seconds)
         training_time = int(math.floor(time.time() - start))
@@ -438,7 +441,7 @@ a.insert_data()
 # b = MarketSimulation(a.supplementaryData, USDTAmount=100.0)
 # b.run()
 lSTMmodel=LSTMmodel()
-x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(a.supplementaryData,50)
+x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData,look_back=50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
