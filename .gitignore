@@ -91,9 +91,14 @@ ENV/
 # Rope project settings
 .ropeproject
 .DS_Store
+btceUSD.csv
+btceUSDs.csv
+lstm.csv
+
 .idea/
 btceUSD.csv
 a.csv
 lstm.csv
-
+logs/
+*.log
 
