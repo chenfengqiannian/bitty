@@ -359,9 +359,13 @@ class MarketSimulationBase(object):
 
 
     def buy(self, count, timestamp):
+        if self.USDTAmount<=0.0:
+            return
         self.dealBase(count, timestamp, 0)
 
     def sell(self, count, timestamp):
+        if self.BTCAmount<=0.0:
+            return
         self.dealBase(count, timestamp, 1)
 
     def dealBase(self, count, timestamp, action):
@@ -449,6 +453,10 @@ class MarketSimulation(MarketSimulationBase):
         test_data = scaler.fit_transform(test_data)
         test_data=np.reshape(test_data,(1,50,1))
         predictList=LSTMmodel.predict_sequence(self.model,test_data,50,3600,scaler)
+        if predictList[-1]>self.data[index]:
+            self.buy(0.05,timestamp)
+        else:
+            self.sell(0.05,timestamp)
         print(predictList)
         self.outList.append(predictList)
 
@@ -456,15 +464,17 @@ class MarketSimulation(MarketSimulationBase):
     def setup(self):
         pass
     def finish(self):
-        fig = plt.figure(figsize=(10, 5))
-        ax = fig.add_subplot(111)
-        ax.set_title("Bitcoin Price Over Time")
-        plt.plot(self.outList, color='green', label='Predicted Price')
-        #plt.plot(real_y_test, color='red', label='Real Price')
-        ax.set_ylabel("Price (USD)")
-        ax.set_xlabel("Time (Days)")
-        ax.legend()
-        plt.show()
+        log.info(self.nowEarnings())
+        log.info(self.businessHistory)
+        # fig = plt.figure(figsize=(10, 5))
+        # ax = fig.add_subplot(111)
+        # ax.set_title("Bitcoin Price Over Time")
+        # plt.plot(self.outList, color='green', label='Predicted Price')
+        # #plt.plot(real_y_test, color='red', label='Real Price')
+        # ax.set_ylabel("Price (USD)")
+        # ax.set_xlabel("Time (Days)")
+        # ax.legend()
+        # plt.show()
 
 
 a = SupplementaryData(filename="btcusdt.csv")
@@ -475,7 +485,7 @@ a.insert_data()
 
 
 model=load_model("my_model3.h5")
-b = MarketSimulation(a.supplementaryData, USDTAmount=100.0,model=model)
+b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
 b.run()
 exit(0)
 

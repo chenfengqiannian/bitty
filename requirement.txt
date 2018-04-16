@@ -6,3 +6,4 @@ keras
 sklearn
 websocket-client
 btfxwss
+h5py
