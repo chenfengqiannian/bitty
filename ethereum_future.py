@@ -269,15 +269,26 @@ class SupplementaryData(object):
         self.trueData = dataframe.as_matrix()
 
     def timestamp_to_int(self):
-        timestamp = self.trueData[:, 0].astype(int).T.reshape(self.trueData.shape[0], 1)
+        #火币处理
+        timestamp = (self.trueData[:, 0]/1000).astype(int).T.reshape(self.trueData.shape[0], 1)
         no_timestamp = self.trueData[:, 1:]
         self.trueData = np.hstack((timestamp, no_timestamp))
+    def removeDuplicate(self):
+        dataframe=pd.DataFrame(self.trueData)
+        dataframe.columns = ['timestamp', 'price', 'volume']
+        dataframe=dataframe.drop_duplicates("timestamp")
+        self.trueData=dataframe.as_matrix()
+
+
+
 
     def insert_data(self):
         supplementaryList = list()
         supplementaryList.append(self.trueData[0, :].reshape(1, 3))
         for i in range(1, self.trueData.shape[0]):
             poor = self.trueData[i, 0] - self.trueData[i - 1, 0]
+            if poor<=1:
+                continue
             supplementary = None
             for j in range(self.trueData.shape[1]):
                 if supplementary is None:
@@ -434,6 +445,7 @@ class MarketSimulation(MarketSimulationBase):
 a = SupplementaryData(filename="BTCUSD.csv")
 a.load_data()
 a.timestamp_to_int()
+a.removeDuplicate()
 a.insert_data()
 
 
