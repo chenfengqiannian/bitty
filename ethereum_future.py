@@ -30,7 +30,7 @@ import logging
 import sys
 import tensorflow as tf
 import numpy as np
-from log import log
+log= logging.getLogger("ethereum_future")
 
 class LSTMmodel(object):
 

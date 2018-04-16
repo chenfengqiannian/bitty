@@ -1,13 +1,28 @@
 # -*- coding: utf-8 -*-
 #author: 半熟的韭菜
 
+
 from websocket import create_connection
 import gzip
 import time
 import json
-import log
 
+from log import getLogger
+log= getLogger("huobi","huobi.log")
 if __name__ == '__main__':
+    import sys
+    coin_type = sys.argv[1]
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("coin_type", help="coin_type", type=str)
+    parser.add_argument("--name", help="save filename", type=str)
+    args = parser.parse_args()
+    name = args.name
+    coin_type = args.coin_type
+    if args.name == None:
+        name = coin_type
+
+
     while(1):
         try:
             ws = create_connection("wss://api.huobipro.com/ws")
@@ -17,7 +32,7 @@ if __name__ == '__main__':
             time.sleep(5)
 
     # 订阅 KLine 数据
-   # tradeStr="""{"sub": "market.ethusdt.kline.1min","id": "id10"}"""
+    tradeStr="""{"sub": "market.%s.kline.1min","id": "id10"}"""%(coin_type)
 
     # 请求 KLine 数据
     # tradeStr="""{"req": "market.ethusdt.kline.1min","id": "id10", "from": 1513391453, "to": 1513392453}"""
@@ -29,7 +44,7 @@ if __name__ == '__main__':
     # tradeStr="""{"req": "market.ethusdt.depth.step5", "id": "id10"}"""
 
     #订阅 Trade Detail 数据
-    tradeStr="""{"sub": "market.ethusdt.trade.detail", "id": "id10"}"""
+    #tradeStr="""{"sub": "market.ethusdt.trade.detail", "id": "id10"}"""
 
     #请求 Trade Detail 数据
     # tradeStr="""{"req": "market.ethusdt.trade.detail", "id": "id10"}"""
@@ -38,17 +53,26 @@ if __name__ == '__main__':
     # tradeStr="""{"req": "market.ethusdt.detail", "id": "id12"}"""
 
     ws.send(tradeStr)
-    while(1):
-        compressData=ws.recv()
-        result=gzip.decompress(compressData).decode('utf-8')
-        if result[:7] == '{"ping"':
-            ts=result[8:21]
-            pong='{"pong":'+ts+'}'
-            ws.send(pong)
-            ws.send(tradeStr)
-        else:
-            data=json.loads(result)
-            if data.get("tick",None):
+    with open(name + ".csv", "a+") as csvfile:
+        while(1):
+            compressData=ws.recv()
+            result=gzip.decompress(compressData).decode('utf-8')
+            if result[:7] == '{"ping"':
+                ts=result[8:21]
+                pong='{"pong":'+ts+'}'
+                ws.send(pong)
+                ws.send(tradeStr)
+            else:
+                data=json.loads(result)
+                if data.get("tick",None):
+                    datelist = list()
+                    #print(data)
+                    datelist.append(str(data["ts"]))
+                    datelist.append(str(data["tick"]["close"]))
+                    datelist.append(str(data["tick"]["vol"]))
+                    log.info(datelist)
+                    csvfile.write(",".join(datelist) + "\n")
+                    csvfile.flush()
 
 
 
