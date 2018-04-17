@@ -26,12 +26,12 @@ import csv
 import time
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-import logging
+import log
 import sys
 import tensorflow as tf
 import numpy as np
 
-log = logging.getLogger("ethereum_future")
+log = log.getLogger("ethereum_future")
 
 
 class LSTMmodel(object):
@@ -317,7 +317,6 @@ class MarketSimulationBase(object):
     trading_time = 900
     scaler = None
     outList = list()
-    businessHistory = list()
 
     def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0, scaler=None):
         self.anchor = 0
@@ -334,7 +333,8 @@ class MarketSimulationBase(object):
                                         "USDTNow": USDTAmount,
                                         "timestamp": self.startTimestamp,
                                         "price": data[0, 1],
-                                        "gas_price": self.gas_price
+                                        "gas_price": self.gas_price,
+                                        "nowEarnings":self.nowEarnings()
                                         })
 
     def run(self):
@@ -343,17 +343,19 @@ class MarketSimulationBase(object):
             self.handel(i)
         self.finish()
 
-    def buy(self, count, timestamp):
+    def buy(self, count, timestamp,predictPrice):
         if self.USDTAmount <= 0.0:
+            log.info("buy fail no enough money")
             return
-        self.dealBase(count, timestamp, 0)
+        self.dealBase(count, timestamp, 0,predictPrice)
 
-    def sell(self, count, timestamp):
+    def sell(self, count, timestamp,predictPrice):
         if self.BTCAmount <= 0.0:
+            log.info("sell fail no enough money")
             return
-        self.dealBase(count, timestamp, 1)
+        self.dealBase(count, timestamp, 1,predictPrice)
 
-    def dealBase(self, count, timestamp, action):
+    def dealBase(self, count, timestamp, action,predictPrice):
         index = timestamp - self.startTimestamp
         price = self.data[index, 1]
         totalPrices = (count * price) + self.gas_price
@@ -375,8 +377,10 @@ class MarketSimulationBase(object):
                               "BTCNow": self.BTCAmount,
                               "USDTNow": self.USDTAmount,
                               "timestamp": timestamp,
-                              "price": price,
-                              "gas_price": self.gas_price
+                              "truePrice": price,
+                              "gas_price": self.gas_price,
+                              "nowEarnings":self.nowEarnings(),
+                              "predictPrice":predictPrice
                               }
         self.transactionRecords.append(transactionRecords)
         log.info(transactionRecords)
@@ -443,7 +447,7 @@ class MarketSimulation(MarketSimulationBase):
         scaler = StandardScaler().fit(test_data)
         test_data = scaler.fit_transform(test_data)
         test_data = np.reshape(test_data, (1, 50, 1))
-        predictList = LSTMmodel.predict_sequence(self.model, test_data, 50, 3600, scaler)
+        predictList = LSTMmodel.predict_sequence(self.model, test_data, 50, 300, scaler)
         if predictList[-1] > self.data[index, 1]:
             self.buy(0.05, timestamp)
 
@@ -459,7 +463,7 @@ class MarketSimulation(MarketSimulationBase):
 
     def finish(self):
         log.info(self.nowEarnings())
-        log.info(self.businessHistory)
+        log.info(self.transactionRecords)
         # fig = plt.figure(figsize=(10, 5))
         # ax = fig.add_subplot(111)
         # ax.set_title("Bitcoin Price Over Time")
@@ -478,23 +482,24 @@ a.removeDuplicate()
 a.insert_data()
 
 
-#model=load_model("my_model3.h5")
-#b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
-#b.run()
-#exit(0)
+model=load_model("my_model3.h5")
+b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
+b.run()
+exit(0)
 
-lSTMmodel = LSTMmodel()
-x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData, look_back=50)
-# # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
-# # min,max,step=getminmaxstep(y_data,N)
-# # x_data = df1.as_matrix()[0:N]
-model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-print (model.summary())
-model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
-#model.save('my_model3.h5')
-#predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
-#print(predict_list)
-# show_image(predict_list)
-lSTMmodel.test_model(model, testX, testY, scaler)
-print("Training time", training_time, "seconds")
- model.save('my_model3.h5')
+# lSTMmodel = LSTMmodel()
+# x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData, look_back=50)
+# # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
+# # # min,max,step=getminmaxstep(y_data,N)
+# # # x_data = df1.as_matrix()[0:N]
+# exit(0)
+# model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+# print (model.summary())
+# model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
+# #model.save('my_model3.h5')
+# #predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
+# #print(predict_list)
+# # show_image(predict_list)
+# lSTMmodel.test_model(model, testX, testY, scaler)
+# print("Training time", training_time, "seconds")
+# model.save('my_model3.h5')
