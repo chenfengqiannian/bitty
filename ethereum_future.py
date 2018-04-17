@@ -31,7 +31,7 @@ import sys
 import tensorflow as tf
 import numpy as np
 
-log = log.getLogger("ethereum_future")
+logger = log.getLogger("ethereum_future")
 
 
 class LSTMmodel(object):
@@ -292,6 +292,20 @@ class SupplementaryData(object):
             supplementaryList.append(supplementary)
         supplementaryList.append(self.trueData[-1].reshape(1, 3))
         self.supplementaryData = np.vstack(tuple(supplementaryList))
+    def showImages(self):
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(111)
+        ax.set_title("Bitcoin Price Over Time")
+        showData=self.supplementaryData[:, 1]
+        plt.plot(showData, color='green', label='Predicted Price')
+        logger.info("max="+str(np.max(showData)))
+        logger.info("min="+str(np.min(showData)))
+
+        # #plt.plot(real_y_test, color='red', label='Real Price')
+        ax.set_ylabel("Price (USD)")
+        ax.set_xlabel("Time (Days)")
+        ax.legend()
+        plt.show()
 
 
 class TradingException(Exception):
@@ -334,7 +348,8 @@ class MarketSimulationBase(object):
                                         "timestamp": self.startTimestamp,
                                         "price": data[0, 1],
                                         "gas_price": self.gas_price,
-                                        "nowEarnings":self.nowEarnings()
+                                        "nowEarnings":self.USDTAmount,
+                                        "predictPrice":0.0
                                         })
 
     def run(self):
@@ -345,13 +360,13 @@ class MarketSimulationBase(object):
 
     def buy(self, count, timestamp,predictPrice):
         if self.USDTAmount <= 0.0:
-            log.info("buy fail no enough money")
+            logger.info("buy fail no enough money")
             return
         self.dealBase(count, timestamp, 0,predictPrice)
 
     def sell(self, count, timestamp,predictPrice):
         if self.BTCAmount <= 0.0:
-            log.info("sell fail no enough money")
+            logger.info("sell fail no enough money")
             return
         self.dealBase(count, timestamp, 1,predictPrice)
 
@@ -383,7 +398,7 @@ class MarketSimulationBase(object):
                               "predictPrice":predictPrice
                               }
         self.transactionRecords.append(transactionRecords)
-        log.info(transactionRecords)
+        logger.info(transactionRecords)
 
     def accuracy(self, num):
         return round(num, 8)
@@ -449,12 +464,14 @@ class MarketSimulation(MarketSimulationBase):
         test_data = np.reshape(test_data, (1, 50, 1))
         predictList = LSTMmodel.predict_sequence(self.model, test_data, 50, 300, scaler)
         if predictList[-1] > self.data[index, 1]:
-            self.buy(0.05, timestamp)
+            self.buy(0.05, timestamp,predictList[-1])
 
         else:
-            self.sell(0.05, timestamp)
+            self.sell(0.05, timestamp,predictList[-1])
 
-        print(predictList)
+        logger.info("true date after=====>"+str(self.data[index+50,1]))
+        logger.info("true data first=====>"+str(self.data[index,1]))
+        logger.info("predict data ===》" + str(predictList[-1]))
         self.outList.append(predictList)
 
 
@@ -462,8 +479,8 @@ class MarketSimulation(MarketSimulationBase):
         pass
 
     def finish(self):
-        log.info(self.nowEarnings())
-        log.info(self.transactionRecords)
+        logger.info(self.nowEarnings())
+        logger.info(self.transactionRecords)
         # fig = plt.figure(figsize=(10, 5))
         # ax = fig.add_subplot(111)
         # ax.set_title("Bitcoin Price Over Time")
@@ -480,6 +497,8 @@ a.load_data()
 a.timestamp_to_int()
 a.removeDuplicate()
 a.insert_data()
+a.showImages()
+exit(0)
 
 
 model=load_model("my_model3.h5")
