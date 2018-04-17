@@ -30,13 +30,13 @@ import logging
 import sys
 import tensorflow as tf
 import numpy as np
-log= logging.getLogger("ethereum_future")
+
+log = logging.getLogger("ethereum_future")
+
 
 class LSTMmodel(object):
 
-
-
-    def create_dataset(self,dataset, look_back=1):
+    def create_dataset(self, dataset, look_back=1):
         dataX, dataY = [], []
         for i in range(len(dataset) - look_back - 1):
             a = dataset[i:(i + look_back), 0]
@@ -44,13 +44,12 @@ class LSTMmodel(object):
             dataY.append(dataset[i + look_back, 0])
         return np.array(dataX), np.array(dataY)
 
-
-    def loadata(self,data=None,file_name=None,look_back=5):
+    def loadata(self, data=None, file_name=None, look_back=5):
         if file_name:
             dataframe = pd.read_csv(file_name, usecols=[1], engine='c')
-            dataset=dataframe.as_matrix()
+            dataset = dataframe.as_matrix()
         else:
-            dataset = data[:,1][:,np.newaxis]
+            dataset = data[:, 1][:, np.newaxis]
             dataset = dataset.astype('float32')
 
         # normalize the dataset
@@ -71,8 +70,7 @@ class LSTMmodel(object):
 
         return trainX, trainY, testX, testY, scaler
 
-
-    def initialize_model(self,X_train, window_size, dropout_value, activation_function, loss_function, optimizer):
+    def initialize_model(self, X_train, window_size, dropout_value, activation_function, loss_function, optimizer):
         """
         Initializes and creates the model to be used
 
@@ -112,8 +110,7 @@ class LSTMmodel(object):
 
         return model
 
-
-    def fit_model(self,model, X_train, Y_train, batch_num, num_epoch, val_split):
+    def fit_model(self, model, X_train, Y_train, batch_num, num_epoch, val_split):
         """
         Fits the model to the training data
 
@@ -133,14 +130,14 @@ class LSTMmodel(object):
         start = time.time()
 
         # Train the model on X_train and Y_train
-        model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split,callbacks=[TensorBoard(log_dir='./logs')])
+        model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split,
+                  callbacks=[TensorBoard(log_dir='./logs')])
 
         # Get the time it took to train the model (in seconds)
         training_time = int(math.floor(time.time() - start))
         return model, training_time
 
-
-    def test_model(self,model, X_test, Y_test, scaler):
+    def test_model(self, model, X_test, Y_test, scaler):
         """
         Test the model on the testing data
 
@@ -186,8 +183,7 @@ class LSTMmodel(object):
 
         return y_predict, real_y_test, real_y_predict, fig
 
-
-    def price_change(self,Y_daybefore, Y_test, y_predict):
+    def price_change(self, Y_daybefore, Y_test, y_predict):
         """
         Calculate the percent change between each value and the day before
 
@@ -240,10 +236,7 @@ class LSTMmodel(object):
             predicted = scaler.inverse_transform(predicted)
         return predicted
 
-
-
-
-    def show_image(self,data):
+    def show_image(self, data):
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(111)
         ax.set_title("Bitcoin Price Over Time")
@@ -270,22 +263,20 @@ class SupplementaryData(object):
         self.trueData = dataframe.as_matrix()
 
     def timestamp_to_int(self):
-        #火币处理
-        timestamp = (self.trueData[:, 0]/1000).astype(int).T.reshape(self.trueData.shape[0], 1)
+        # 火币处理
+        timestamp = (self.trueData[:, 0] / 1000).astype(int).T.reshape(self.trueData.shape[0], 1)
         no_timestamp = self.trueData[:, 1:]
         self.trueData = np.hstack((timestamp, no_timestamp))
+
     def removeDuplicate(self):
-        dataframe=pd.DataFrame(self.trueData)
+        dataframe = pd.DataFrame(self.trueData)
         dataframe.columns = ['timestamp', 'price', 'volume']
-        dataframe=dataframe.drop_duplicates("timestamp")
-        self.trueData=dataframe.as_matrix()
-
-
-
+        dataframe = dataframe.drop_duplicates("timestamp")
+        self.trueData = dataframe.as_matrix()
 
     def insert_data(self):
         supplementaryList = list()
-        #supplementaryList.append(self.trueData[0, :].reshape(1, 3))
+        # supplementaryList.append(self.trueData[0, :].reshape(1, 3))
         for i in range(1, self.trueData.shape[0]):
             poor = self.trueData[i, 0] - self.trueData[i - 1, 0]
             supplementary = None
@@ -314,7 +305,7 @@ class LackBalanceException(TradingException):
 
 
 class MarketSimulationBase(object):
-    transactionRecords=list()
+    transactionRecords = list()
     USDTAmount = 0.0
     BTCAmount = 0.0
     currentTimestamp = 0.0
@@ -324,13 +315,12 @@ class MarketSimulationBase(object):
     endTimestamp = 0.0
     gas_price = 0.0
     trading_time = 900
-    scaler=None
-    outList=list()
+    scaler = None
+    outList = list()
     businessHistory = list()
 
-
-    def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0,scaler=None):
-        self.anchor=0
+    def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0, scaler=None):
+        self.anchor = 0
         self.data = data
         self.model = model
         self.USDTAmount = USDTAmount
@@ -342,14 +332,10 @@ class MarketSimulationBase(object):
                                         "USDTChange": 0,
                                         "BTCNow": BTCAmount,
                                         "USDTNow": USDTAmount,
-                                        "timestamp":self.startTimestamp,
-                                        "price": data[0,1],
+                                        "timestamp": self.startTimestamp,
+                                        "price": data[0, 1],
                                         "gas_price": self.gas_price
                                         })
-
-
-
-
 
     def run(self):
         self.setup()
@@ -357,21 +343,20 @@ class MarketSimulationBase(object):
             self.handel(i)
         self.finish()
 
-
     def buy(self, count, timestamp):
-        if self.USDTAmount<=0.0:
+        if self.USDTAmount <= 0.0:
             return
         self.dealBase(count, timestamp, 0)
 
     def sell(self, count, timestamp):
-        if self.BTCAmount<=0.0:
+        if self.BTCAmount <= 0.0:
             return
         self.dealBase(count, timestamp, 1)
 
     def dealBase(self, count, timestamp, action):
         index = timestamp - self.startTimestamp
         price = self.data[index, 1]
-        totalPrices = (count * price)+self.gas_price
+        totalPrices = (count * price) + self.gas_price
         minPrice = min(self.USDTAmount, totalPrices)
         if action == 0:
             minPrice = min(self.USDTAmount, totalPrices)
@@ -383,42 +368,45 @@ class MarketSimulationBase(object):
             minCount = min(self.BTCAmount, count)
             realPrice = minCount * price
             self.BTCAmount = self.accuracy(self.BTCAmount - minCount)
-            self.USDTAmount =self.accuracy( self.USDTAmount + realPrice)
-        transactionRecords={"action": action,
-         "BTCChange": realCount if action == 0 else -minCount,
-         "USDTChange": -minPrice if action == 0 else realPrice,
-         "BTCNow": self.BTCAmount,
-         "USDTNow": self.USDTAmount,
-         "timestamp": timestamp,
-         "price": price,
-         "gas_price": self.gas_price
-         }
+            self.USDTAmount = self.accuracy(self.USDTAmount + realPrice)
+        transactionRecords = {"action": action,
+                              "BTCChange": realCount if action == 0 else -minCount,
+                              "USDTChange": -minPrice if action == 0 else realPrice,
+                              "BTCNow": self.BTCAmount,
+                              "USDTNow": self.USDTAmount,
+                              "timestamp": timestamp,
+                              "price": price,
+                              "gas_price": self.gas_price
+                              }
         self.transactionRecords.append(transactionRecords)
         log.info(transactionRecords)
 
+    def accuracy(self, num):
+        return round(num, 8)
 
-    def accuracy(self,num):
-        return round(num,8)
+    def equivalentUSDT(self, price=None, USDT=None, BTC=None):
+        if price == None:
+            price = self.data[-1, 1]
+        if USDT == None:
+            USDT = self.USDTAmount
+        if BTC == None:
+            BTC = self.BTCAmount
+        return self.accuracy(BTC * price) + USDT
 
-    def equivalentUSDT(self,price=None,USDT=None,BTC=None):
-        if price==None:
-            price=self.data[-1,1]
-        if USDT==None:
-            USDT=self.USDTAmount
-        if BTC==None:
-            BTC=self.BTCAmount
-        return self.accuracy(BTC*price)+USDT
-    def earnings(self,USDT1,USDT2):
-        return self.accuracy(USDT1-USDT2)
-    def earningsGains(self,USDT1,USDT2):
-        return self.accuracy(self.earnings(USDT1,USDT2)/USDT1)
-    def nowEarnings(self,type=0):
-        totalUSDT=self.equivalentUSDT(self.transactionRecords[-1]["BTCNow"],USDT=self.transactionRecords[0]["USDTNow"])
-        initUSDT=self.transactionRecords[-1]["USDTNow"]
-        if type==0:
-            return self.earnings(initUSDT,totalUSDT)
-        elif type==1:
-            return self.earningsGains(initUSDT,totalUSDT)
+    def earnings(self, USDT1, USDT2):
+        return self.accuracy(USDT1 - USDT2)
+
+    def earningsGains(self, USDT1, USDT2):
+        return self.accuracy(self.earnings(USDT1, USDT2) / USDT1)
+
+    def nowEarnings(self, type=0):
+        totalUSDT = self.equivalentUSDT(self.transactionRecords[-1]["BTCNow"],
+                                        USDT=self.transactionRecords[0]["USDTNow"])
+        initUSDT = self.transactionRecords[-1]["USDTNow"]
+        if type == 0:
+            return self.earnings(initUSDT, totalUSDT)
+        elif type == 1:
+            return self.earningsGains(initUSDT, totalUSDT)
 
     def handel(self, timestamp):
         pass
@@ -433,36 +421,41 @@ class MarketSimulationBase(object):
 
         pass
 
-
-
     def finish(self):
         pass
         #  print(self.nowEarnings())
         # print(self.nowEarnings(1))
+
+
 class MarketSimulation(MarketSimulationBase):
     def handel(self, timestamp):
+
         index = timestamp - self.startTimestamp
 
-        if timestamp-self.anchor<3600:
+        if timestamp - self.anchor < 3600:
             return
         if index <= 49:
             return
-        self.anchor = timestamp
-        test_data = self.data[index - 50:index,1,np.newaxis]
+        self.anchor=timestamp
+
+
+        test_data = self.data[index - 50:index, 1, np.newaxis]
         scaler = StandardScaler().fit(test_data)
         test_data = scaler.fit_transform(test_data)
-        test_data=np.reshape(test_data,(1,50,1))
-        predictList=LSTMmodel.predict_sequence(self.model,test_data,50,3600,scaler)
-        if predictList[-1]>self.data[index]:
-            self.buy(0.05,timestamp)
+        test_data = np.reshape(test_data, (1, 50, 1))
+        predictList = LSTMmodel.predict_sequence(self.model, test_data, 50, 3600, scaler)
+        if predictList[-1] > self.data[index, 1]:
+            self.buy(0.05, timestamp)
+
         else:
-            self.sell(0.05,timestamp)
+            self.sell(0.05, timestamp)
+
         print(predictList)
         self.outList.append(predictList)
 
-
     def setup(self):
         pass
+
     def finish(self):
         log.info(self.nowEarnings())
         log.info(self.businessHistory)
@@ -483,24 +476,23 @@ a.timestamp_to_int()
 a.removeDuplicate()
 a.insert_data()
 
-
-model=load_model("my_model3.h5")
-b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
+model = load_model("my_model3.h5")
+b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0, model=model)
 b.run()
 exit(0)
 
-lSTMmodel=LSTMmodel()
-x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData,look_back=50)
+lSTMmodel = LSTMmodel()
+x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData, look_back=50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-#model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-print (model.summary())
-#model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
-#model.save('my_model3.h5')
-predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
+# model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+print(model.summary())
+# model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
+# model.save('my_model3.h5')
+predict_list = lSTMmodel.predict_sequence(model, testX, 50, 50, scaler)
 print(predict_list)
 # show_image(predict_list)
 lSTMmodel.test_model(model, testX, testY, scaler)
-#print("Training time", training_time, "seconds")
+# print("Training time", training_time, "seconds")
 # model.save('my_model3.h5')
