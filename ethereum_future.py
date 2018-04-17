@@ -453,6 +453,7 @@ class MarketSimulation(MarketSimulationBase):
         print(predictList)
         self.outList.append(predictList)
 
+
     def setup(self):
         pass
 
@@ -476,23 +477,24 @@ a.timestamp_to_int()
 a.removeDuplicate()
 a.insert_data()
 
-model = load_model("my_model3.h5")
-b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0, model=model)
-b.run()
-exit(0)
+
+#model=load_model("my_model3.h5")
+#b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
+#b.run()
+#exit(0)
 
 lSTMmodel = LSTMmodel()
 x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData, look_back=50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-# model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-print(model.summary())
-# model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
-# model.save('my_model3.h5')
-predict_list = lSTMmodel.predict_sequence(model, testX, 50, 50, scaler)
-print(predict_list)
+model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+print (model.summary())
+model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
+#model.save('my_model3.h5')
+#predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
+#print(predict_list)
 # show_image(predict_list)
 lSTMmodel.test_model(model, testX, testY, scaler)
-# print("Training time", training_time, "seconds")
-# model.save('my_model3.h5')
+print("Training time", training_time, "seconds")
+ model.save('my_model3.h5')
