@@ -226,8 +226,8 @@ class LSTMmodel(object):
 
         return Y_daybefore, Y_test, delta_predict, delta_real, fig
 
-
-    def predict_sequence(self,model, test_data, seq_len, step, scaler):
+    @staticmethod
+    def predict_sequence(model, test_data, seq_len, step, scaler=None):
         # 根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
         curr_frame = test_data[-1]
         predicted = []
@@ -236,7 +236,8 @@ class LSTMmodel(object):
             predicted.append(model.predict(curr_frame[np.newaxis, :, :])[0, 0])
             curr_frame = curr_frame[1:]
             curr_frame = np.insert(curr_frame, [seq_len - 1], predicted[-1], axis=0)
-        predicted = scaler.inverse_transform(predicted)
+        if scaler:
+            predicted = scaler.inverse_transform(predicted)
         return predicted
 
 
@@ -269,13 +270,22 @@ class SupplementaryData(object):
         self.trueData = dataframe.as_matrix()
 
     def timestamp_to_int(self):
-        timestamp = self.trueData[:, 0].astype(int).T.reshape(self.trueData.shape[0], 1)
+        #火币处理
+        timestamp = (self.trueData[:, 0]/1000).astype(int).T.reshape(self.trueData.shape[0], 1)
         no_timestamp = self.trueData[:, 1:]
         self.trueData = np.hstack((timestamp, no_timestamp))
+    def removeDuplicate(self):
+        dataframe=pd.DataFrame(self.trueData)
+        dataframe.columns = ['timestamp', 'price', 'volume']
+        dataframe=dataframe.drop_duplicates("timestamp")
+        self.trueData=dataframe.as_matrix()
+
+
+
 
     def insert_data(self):
         supplementaryList = list()
-        supplementaryList.append(self.trueData[0, :].reshape(1, 3))
+        #supplementaryList.append(self.trueData[0, :].reshape(1, 3))
         for i in range(1, self.trueData.shape[0]):
             poor = self.trueData[i, 0] - self.trueData[i - 1, 0]
             supplementary = None
@@ -314,11 +324,13 @@ class MarketSimulationBase(object):
     endTimestamp = 0.0
     gas_price = 0.0
     trading_time = 900
-
+    scaler=None
+    outList=list()
     businessHistory = list()
 
 
-    def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0):
+    def __init__(self, data=None, model=None, USDTAmount=0.0, BTCAmount=0.0,scaler=None):
+        self.anchor=0
         self.data = data
         self.model = model
         self.USDTAmount = USDTAmount
@@ -347,9 +359,13 @@ class MarketSimulationBase(object):
 
 
     def buy(self, count, timestamp):
+        if self.USDTAmount<=0.0:
+            return
         self.dealBase(count, timestamp, 0)
 
     def sell(self, count, timestamp):
+        if self.BTCAmount<=0.0:
+            return
         self.dealBase(count, timestamp, 1)
 
     def dealBase(self, count, timestamp, action):
@@ -406,6 +422,7 @@ class MarketSimulationBase(object):
 
     def handel(self, timestamp):
         pass
+
     def setup(self):
         # print(np.max(self.data[:,1],0))
         # maxindex=np.argmax(self.data[:, 1], 0)
@@ -424,34 +441,66 @@ class MarketSimulationBase(object):
         # print(self.nowEarnings(1))
 class MarketSimulation(MarketSimulationBase):
     def handel(self, timestamp):
-        pass
+        index = timestamp - self.startTimestamp
+
+        if timestamp-self.anchor<3600:
+            return
+        if index <= 49:
+            return
+        self.anchor = timestamp
+        test_data = self.data[index - 50:index,1,np.newaxis]
+        scaler = StandardScaler().fit(test_data)
+        test_data = scaler.fit_transform(test_data)
+        test_data=np.reshape(test_data,(1,50,1))
+        predictList=LSTMmodel.predict_sequence(self.model,test_data,50,3600,scaler)
+        if predictList[-1]>self.data[index]:
+            self.buy(0.05,timestamp)
+        else:
+            self.sell(0.05,timestamp)
+        print(predictList)
+        self.outList.append(predictList)
+
+
     def setup(self):
         pass
     def finish(self):
-        pass
+        log.info(self.nowEarnings())
+        log.info(self.businessHistory)
+        # fig = plt.figure(figsize=(10, 5))
+        # ax = fig.add_subplot(111)
+        # ax.set_title("Bitcoin Price Over Time")
+        # plt.plot(self.outList, color='green', label='Predicted Price')
+        # #plt.plot(real_y_test, color='red', label='Real Price')
+        # ax.set_ylabel("Price (USD)")
+        # ax.set_xlabel("Time (Days)")
+        # ax.legend()
+        # plt.show()
 
 
-a = SupplementaryData(filename="BTCUSD.csv")
+a = SupplementaryData(filename="btcusdt.csv")
 a.load_data()
 a.timestamp_to_int()
+a.removeDuplicate()
 a.insert_data()
 
 
+model=load_model("my_model3.h5")
+b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
+b.run()
+exit(0)
 
-# b = MarketSimulation(a.supplementaryData, USDTAmount=100.0)
-# b.run()
 lSTMmodel=LSTMmodel()
 x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData,look_back=50)
 # # y_data=df1["price"].as_matrix()[:, np.newaxis][0:N]
 # # min,max,step=getminmaxstep(y_data,N)
 # # x_data = df1.as_matrix()[0:N]
-model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+#model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
 print (model.summary())
-model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
-model.save('my_model3.h5')
-# predict_list=predict_sequence(model,testX,50)
-# print(predict_list)
+#model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
+#model.save('my_model3.h5')
+predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
+print(predict_list)
 # show_image(predict_list)
 lSTMmodel.test_model(model, testX, testY, scaler)
-print("Training time", training_time, "seconds")
+#print("Training time", training_time, "seconds")
 # model.save('my_model3.h5')
