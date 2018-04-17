@@ -326,7 +326,7 @@ class MarketSimulationBase(object):
         self.BTCAmount = BTCAmount
         self.startTimestamp = int(self.data[0, 0])
         self.endTimestamp = int(self.data[-1, 0])
-        self.transactionRecords.append({"action": -1,
+        self.transactionRecords.append({"action": 0,
                                         "BTCChange": 0,
                                         "USDTChange": 0,
                                         "BTCNow": BTCAmount,
@@ -436,7 +436,7 @@ class MarketSimulation(MarketSimulationBase):
 
         index = timestamp - self.startTimestamp
 
-        if timestamp - self.anchor < 3600:
+        if timestamp - self.anchor < 300:
             return
         if index <= 49:
             return
