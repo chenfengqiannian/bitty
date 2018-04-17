@@ -33,6 +33,8 @@ import numpy as np
 
 logger = log.getLogger("ethereum_future")
 
+LOOK_BACK=50
+SETPFUTURE=300
 
 class LSTMmodel(object):
 
@@ -320,6 +322,7 @@ class LackBalanceException(TradingException):
 
 class MarketSimulationBase(object):
     transactionRecords = list()
+    listDealPrice=0.0
     USDTAmount = 0.0
     BTCAmount = 0.0
     currentTimestamp = 0.0
@@ -340,6 +343,7 @@ class MarketSimulationBase(object):
         self.BTCAmount = BTCAmount
         self.startTimestamp = int(self.data[0, 0])
         self.endTimestamp = int(self.data[-1, 0])
+        self.listDealPrice=self.data[-1,1]
         self.transactionRecords.append({"action": 0,
                                         "BTCChange": 0,
                                         "USDTChange": 0,
@@ -386,6 +390,7 @@ class MarketSimulationBase(object):
             realPrice = minCount * price
             self.BTCAmount = self.accuracy(self.BTCAmount - minCount)
             self.USDTAmount = self.accuracy(self.USDTAmount + realPrice)
+        self.listDealPrice=price
         transactionRecords = {"action": action,
                               "BTCChange": realCount if action == 0 else -minCount,
                               "USDTChange": -minPrice if action == 0 else realPrice,
@@ -419,9 +424,8 @@ class MarketSimulationBase(object):
         return self.accuracy(self.earnings(USDT1, USDT2) / USDT1)
 
     def nowEarnings(self, type=0):
-        totalUSDT = self.equivalentUSDT(self.transactionRecords[-1]["BTCNow"],
-                                        USDT=self.transactionRecords[0]["USDTNow"])
-        initUSDT = self.transactionRecords[-1]["USDTNow"]
+        totalUSDT = self.equivalentUSDT(price=self.listDealPrice)
+        initUSDT = self.transactionRecords[0]["USDTNow"]
         if type == 0:
             return self.earnings(initUSDT, totalUSDT)
         elif type == 1:
@@ -451,18 +455,18 @@ class MarketSimulation(MarketSimulationBase):
 
         index = timestamp - self.startTimestamp
 
-        if timestamp - self.anchor < 300:
+        if timestamp - self.anchor < SETPFUTURE:
             return
-        if index <= 49:
+        if index <= LOOK_BACK-1:
             return
         self.anchor=timestamp
 
 
-        test_data = self.data[index - 50:index, 1, np.newaxis]
+        test_data = self.data[index - LOOK_BACK:index, 1, np.newaxis]
         scaler = StandardScaler().fit(test_data)
         test_data = scaler.fit_transform(test_data)
-        test_data = np.reshape(test_data, (1, 50, 1))
-        predictList = LSTMmodel.predict_sequence(self.model, test_data, 50, 300, scaler)
+        test_data = np.reshape(test_data, (1, LOOK_BACK, 1))
+        predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE, scaler)
         if predictList[-1] > self.data[index, 1]:
             self.buy(0.05, timestamp,predictList[-1])
 
@@ -471,7 +475,7 @@ class MarketSimulation(MarketSimulationBase):
 
         logger.info("true date after=====>"+str(self.data[index+50,1]))
         logger.info("true data first=====>"+str(self.data[index,1]))
-        logger.info("predict data ===》" + str(predictList[-1]))
+        logger.info("predict data ===>" + str(predictList[-1]))
         self.outList.append(predictList)
 
 
@@ -497,8 +501,8 @@ a.load_data()
 a.timestamp_to_int()
 a.removeDuplicate()
 a.insert_data()
-a.showImages()
-exit(0)
+#a.showImages()
+
 
 
 model=load_model("my_model3.h5")
