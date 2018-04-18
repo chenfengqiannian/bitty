@@ -33,8 +33,9 @@ import numpy as np
 
 logger = log.getLogger("ethereum_future")
 
-LOOK_BACK=50
-SETPFUTURE=300
+LOOK_BACK = 50
+SETPFUTURE = 300
+
 
 class LSTMmodel(object):
 
@@ -226,7 +227,7 @@ class LSTMmodel(object):
 
     @staticmethod
     def predict_sequence(model, test_data, seq_len, step, scaler=None):
-        # 根据训练模型和第一段用来预测的时间序列长度逐步预测整个时间序列
+        # 根据训练模型和段用来预测的时间序列长度逐步预测整个时间序列
         curr_frame = test_data[-1]
         predicted = []
         a = 0
@@ -294,14 +295,15 @@ class SupplementaryData(object):
             supplementaryList.append(supplementary)
         supplementaryList.append(self.trueData[-1].reshape(1, 3))
         self.supplementaryData = np.vstack(tuple(supplementaryList))
+
     def showImages(self):
         fig = plt.figure(figsize=(10, 5))
         ax = fig.add_subplot(111)
         ax.set_title("Bitcoin Price Over Time")
-        showData=self.supplementaryData[:, 1]
+        showData = self.supplementaryData[:, 1]
         plt.plot(showData, color='green', label='Predicted Price')
-        logger.info("max="+str(np.max(showData)))
-        logger.info("min="+str(np.min(showData)))
+        logger.info("max=" + str(np.max(showData)))
+        logger.info("min=" + str(np.min(showData)))
 
         # #plt.plot(real_y_test, color='red', label='Real Price')
         ax.set_ylabel("Price (USD)")
@@ -322,7 +324,7 @@ class LackBalanceException(TradingException):
 
 class MarketSimulationBase(object):
     transactionRecords = list()
-    listDealPrice=0.0
+    listDealPrice = 0.0
     USDTAmount = 0.0
     BTCAmount = 0.0
     currentTimestamp = 0.0
@@ -343,7 +345,7 @@ class MarketSimulationBase(object):
         self.BTCAmount = BTCAmount
         self.startTimestamp = int(self.data[0, 0])
         self.endTimestamp = int(self.data[-1, 0])
-        self.listDealPrice=self.data[-1,1]
+        self.listDealPrice = self.data[-1, 1]
         self.transactionRecords.append({"action": 0,
                                         "BTCChange": 0,
                                         "USDTChange": 0,
@@ -352,8 +354,8 @@ class MarketSimulationBase(object):
                                         "timestamp": self.startTimestamp,
                                         "price": data[0, 1],
                                         "gas_price": self.gas_price,
-                                        "nowEarnings":self.USDTAmount,
-                                        "predictPrice":0.0
+                                        "nowEarnings": self.USDTAmount,
+                                        "predictPrice": 0.0
                                         })
 
     def run(self):
@@ -362,19 +364,19 @@ class MarketSimulationBase(object):
             self.handel(i)
         self.finish()
 
-    def buy(self, count, timestamp,predictPrice):
+    def buy(self, count, timestamp, predictPrice):
         if self.USDTAmount <= 0.0:
             logger.info("buy fail no enough money")
             return
-        self.dealBase(count, timestamp, 0,predictPrice)
+        self.dealBase(count, timestamp, 0, predictPrice)
 
-    def sell(self, count, timestamp,predictPrice):
+    def sell(self, count, timestamp, predictPrice):
         if self.BTCAmount <= 0.0:
             logger.info("sell fail no enough money")
             return
-        self.dealBase(count, timestamp, 1,predictPrice)
+        self.dealBase(count, timestamp, 1, predictPrice)
 
-    def dealBase(self, count, timestamp, action,predictPrice):
+    def dealBase(self, count, timestamp, action, predictPrice):
         index = timestamp - self.startTimestamp
         price = self.data[index, 1]
         totalPrices = (count * price) + self.gas_price
@@ -390,7 +392,7 @@ class MarketSimulationBase(object):
             realPrice = minCount * price
             self.BTCAmount = self.accuracy(self.BTCAmount - minCount)
             self.USDTAmount = self.accuracy(self.USDTAmount + realPrice)
-        self.listDealPrice=price
+        self.listDealPrice = price
         transactionRecords = {"action": action,
                               "BTCChange": realCount if action == 0 else -minCount,
                               "USDTChange": -minPrice if action == 0 else realPrice,
@@ -399,8 +401,8 @@ class MarketSimulationBase(object):
                               "timestamp": timestamp,
                               "truePrice": price,
                               "gas_price": self.gas_price,
-                              "nowEarnings":self.nowEarnings(),
-                              "predictPrice":predictPrice
+                              "nowEarnings": self.nowEarnings(),
+                              "predictPrice": predictPrice
                               }
         self.transactionRecords.append(transactionRecords)
         logger.info(transactionRecords)
@@ -427,9 +429,9 @@ class MarketSimulationBase(object):
         totalUSDT = self.equivalentUSDT(price=self.listDealPrice)
         initUSDT = self.transactionRecords[0]["USDTNow"]
         if type == 0:
-            return self.earnings(initUSDT, totalUSDT)
+            return self.earnings(totalUSDT,initUSDT )
         elif type == 1:
-            return self.earningsGains(initUSDT, totalUSDT)
+            return self.earningsGains(totalUSDT,initUSDT)
 
     def handel(self, timestamp):
         pass
@@ -457,30 +459,80 @@ class MarketSimulation(MarketSimulationBase):
 
         if timestamp - self.anchor < SETPFUTURE:
             return
-        if index <= LOOK_BACK-1:
+        if index <= LOOK_BACK - 1:
             return
-        self.anchor=timestamp
+        self.anchor = timestamp
+
+        test_data = np.reshape(self.test_data[index - 50:index, 0], (1, LOOK_BACK, 1))
+
+        predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE,self.scaler)
 
 
-        test_data = self.data[index - LOOK_BACK:index, 1, np.newaxis]
-        scaler = StandardScaler().fit(test_data)
-        test_data = scaler.fit_transform(test_data)
-        test_data = np.reshape(test_data, (1, LOOK_BACK, 1))
-        predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE, scaler)
-        if predictList[-1] > self.data[index, 1]:
-            self.buy(0.05, timestamp,predictList[-1])
 
-        else:
-            self.sell(0.05, timestamp,predictList[-1])
-
-        logger.info("true date after=====>"+str(self.data[index+50,1]))
-        logger.info("true data first=====>"+str(self.data[index,1]))
+        logger.info("true date after=====>" + str(self.data[index + 50, 1]))
+        logger.info("true data first=====>" + str(self.data[index, 1]))
         logger.info("predict data ===>" + str(predictList[-1]))
         self.outList.append(predictList)
 
+    def setup(self):
+        self.test_data = self.data[:, 1, np.newaxis]
+        self.scaler = StandardScaler().fit(self.test_data)
+        self.test_data = self.scaler.fit_transform(self.test_data)
+
+    def finish(self):
+        logger.info(self.nowEarnings())
+        logger.info(self.transactionRecords)
+        # fig = plt.figure(figsize=(10, 5))
+        # ax = fig.add_subplot(111)
+        # ax.set_title("Bitcoin Price Over Time")
+        # plt.plot(self.outList, color='green', label='Predicted Price')
+        # #plt.plot(real_y_test, color='red', label='Real Price')
+        # ax.set_ylabel("Price (USD)")
+        # ax.set_xlabel("Time (Days)")
+        # ax.legend()
+        # plt.show()
+
+from collections import OrderedDict
+class MarketSimulationBB(MarketSimulationBase):
+
+    tradingOrderDict=OrderedDict()
+    def handel(self, timestamp):
+        tradingOrderDict=self.tradingOrderDict.get(timestamp)
+        if tradingOrderDict:
+            if tradingOrderDict["action"]==1:
+                self.buy(tradingOrderDict["count"],timestamp,tradingOrderDict["predictValue"])
+            else:
+                self.sell(tradingOrderDict["count"],timestamp,tradingOrderDict["predictValue"])
+
+        index = timestamp - self.startTimestamp
+
+
+        if timestamp - self.anchor < SETPFUTURE:
+            return
+        if index <= LOOK_BACK - 1:
+            return
+        self.anchor = timestamp
+        test_data = np.reshape(self.test_data[index-50:index,0], (1, LOOK_BACK, 1))
+        predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE, self.scaler)
+        maxIndex=np.argmax(predictList)
+        minIndex=np.argmin(predictList)
+        maxValue=np.max(predictList)
+        minValue=np.min(predictList)
+        if maxIndex>minIndex:
+            self.tradingOrderDict[minIndex+timestamp]={"action":1,"predictValue":minValue,"count":1000}
+            self.tradingOrderDict[maxIndex+timestamp]={"action": -1, "predictValue": maxValue, "count": 1000}
+        else:
+            self.tradingOrderDict[maxIndex+timestamp]={"action": -1, "predictValue": maxValue, "count": 1000}
+            self.tradingOrderDict[minIndex+timestamp]={"action": 1, "predictValue": minValue, "count": 1000}
+        #self.tradingOrder=self.tradingOrder.tradingOrdert.sort(key=lambda k: k[0])
+        logger.info(self.tradingOrderDict)
+        self.outList.append(predictList)
 
     def setup(self):
-        pass
+        self.test_data = self.data[:, 1, np.newaxis]
+        self.scaler = StandardScaler().fit(self.test_data)
+        self.test_data = self.scaler.fit_transform(self.test_data)
+
 
     def finish(self):
         logger.info(self.nowEarnings())
@@ -501,12 +553,11 @@ a.load_data()
 a.timestamp_to_int()
 a.removeDuplicate()
 a.insert_data()
-#a.showImages()
+# a.showImages()
 
 
-
-model=load_model("my_model3.h5")
-b = MarketSimulation(a.supplementaryData, USDTAmount=1000.0,model=model)
+model = load_model("my_model3.h5")
+b = MarketSimulationBB(a.supplementaryData, USDTAmount=1000.0, model=model)
 b.run()
 exit(0)
 
