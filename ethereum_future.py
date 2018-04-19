@@ -8,7 +8,7 @@ import argparse
 import time
 
 ## Keras for deep learning
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, EarlyStopping
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.layers import Bidirectional
@@ -34,7 +34,7 @@ import numpy as np
 logger = log.getLogger("ethereum_future")
 
 LOOK_BACK = 50
-SETPFUTURE = 3600
+SETPFUTURE = 3600*5
 
 
 class LSTMmodel(object):
@@ -134,7 +134,7 @@ class LSTMmodel(object):
 
         # Train the model on X_train and Y_train
         model.fit(X_train, Y_train, batch_size=batch_num, nb_epoch=num_epoch, validation_split=val_split,
-                  callbacks=[TensorBoard(log_dir='./logs')])
+                  callbacks=[TensorBoard(log_dir='./logs'),EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')])
 
         # Get the time it took to train the model (in seconds)
         training_time = int(math.floor(time.time() - start))
@@ -508,8 +508,10 @@ class MarketSimulationBB(MarketSimulationBase):
 
     tradingOrderDict=OrderedDict()
     def handel(self, timestamp):
+
         tradingOrderDict=self.tradingOrderDict.get(timestamp)
         if tradingOrderDict:
+            logger.info("deal==========>"+str(timestamp))
             if tradingOrderDict["action"]==1:
                 self.buy(tradingOrderDict["count"],timestamp,tradingOrderDict["predictValue"])
             else:
@@ -522,6 +524,7 @@ class MarketSimulationBB(MarketSimulationBase):
             return
         if index <= LOOK_BACK - 1:
             return
+        logger.info("predict==========>" + str(timestamp)+"auchor=====>"+str(self.anchor))
         self.anchor = timestamp
         test_data = np.reshape(self.test_data[index-50:index,0], (1, LOOK_BACK, 1))
         predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE, self.scaler)
@@ -567,10 +570,10 @@ a.insert_data()
 # a.showImages()
 #
 #
-# model = load_model("my_model3.h5")
-# b = MarketSimulationBB(a.supplementaryData, USDTAmount=1000.0, model=model)
-# b.run()
-# exit(0)
+model = load_model("my_model4.h5")
+b = MarketSimulationBB(a.supplementaryData, USDTAmount=1000.0, model=model)
+b.run()
+exit(0)
 
 lSTMmodel = LSTMmodel()
 x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryData, look_back=50)
@@ -578,13 +581,13 @@ x_data, y_data, testX, testY, scaler = lSTMmodel.loadata(data=a.supplementaryDat
 # # # min,max,step=getminmaxstep(y_data,N)
 # # # x_data = df1.as_matrix()[0:N]
 # exit(0)
-model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
-print (model.summary())
-model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
+#model=lSTMmodel.initialize_model(x_data,50,0.2,'linear', 'mse', 'adam')
+#print (model.summary())
+#model, training_time = lSTMmodel.fit_model(model, x_data, y_data, 1024, 100, .05)
 # #model.save('my_model3.h5')
 # #predict_list=lSTMmodel.predict_sequence(model,testX,50,50,scaler)
 # #print(predict_list)
 # # show_image(predict_list)
 # lSTMmodel.test_model(model, testX, testY, scaler)
-print("Training time", training_time, "seconds")
-model.save('my_model4.h5')
+#print("Training time", training_time, "seconds")
+#model.save('my_model4.h5')
