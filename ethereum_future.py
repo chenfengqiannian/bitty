@@ -34,7 +34,7 @@ import numpy as np
 logger = log.getLogger("ethereum_future")
 
 LOOK_BACK = 50
-SETPFUTURE = 300
+SETPFUTURE = 3600
 
 
 class LSTMmodel(object):
@@ -353,9 +353,11 @@ class MarketSimulationBase(object):
                                         "USDTNow": USDTAmount,
                                         "timestamp": self.startTimestamp,
                                         "price": data[0, 1],
-                                        "gas_price": self.gas_price,
+                                        "gas_price": 0.0,
+                                        "poundage": 0.0,
                                         "nowEarnings": self.USDTAmount,
-                                        "predictPrice": 0.0
+                                        "predictPrice": 0.0,
+
                                         })
 
     def run(self):
@@ -379,17 +381,22 @@ class MarketSimulationBase(object):
     def dealBase(self, count, timestamp, action, predictPrice):
         index = timestamp - self.startTimestamp
         price = self.data[index, 1]
-        totalPrices = (count * price) + self.gas_price
-        minPrice = min(self.USDTAmount, totalPrices)
+        totalPrices = count * price
+        #minPrice = min(self.USDTAmount, totalPrices)
         if action == 0:
             minPrice = min(self.USDTAmount, totalPrices)
-            realCount = self.accuracy(minPrice / price)
+            realCount = self.accuracy(minPrice / price/1.002)
+            poundage=self.poundage(realCount)
+            gas_price = self.accuracy(poundage * self.data[-1,1])
             self.BTCAmount = self.accuracy(self.BTCAmount + realCount)
             self.USDTAmount = self.accuracy(self.USDTAmount - minPrice)
 
         elif action == 1:
             minCount = min(self.BTCAmount, count)
-            realPrice = minCount * price
+            realPrice = minCount * price/1.002
+            poundage = self.poundage(realPrice)
+            gas_price=poundage
+
             self.BTCAmount = self.accuracy(self.BTCAmount - minCount)
             self.USDTAmount = self.accuracy(self.USDTAmount + realPrice)
         self.listDealPrice = price
@@ -400,7 +407,8 @@ class MarketSimulationBase(object):
                               "USDTNow": self.USDTAmount,
                               "timestamp": timestamp,
                               "truePrice": price,
-                              "gas_price": self.gas_price,
+                              "gas_price": gas_price,
+                              "poundage":poundage,
                               "nowEarnings": self.nowEarnings(),
                               "predictPrice": predictPrice
                               }
@@ -409,6 +417,9 @@ class MarketSimulationBase(object):
 
     def accuracy(self, num):
         return round(num, 8)
+    def poundage(self,count):
+        return count*0.002
+
 
     def equivalentUSDT(self, price=None, USDT=None, BTC=None):
         if price == None:
