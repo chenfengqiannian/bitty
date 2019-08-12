@@ -34,7 +34,7 @@ import numpy as np
 logger = log.getLogger("ethereum_future")
 
 LOOK_BACK = 50
-SETPFUTURE = 3600*5
+SETPFUTURE = 50
 
 
 class LSTMmodel(object):
@@ -528,6 +528,19 @@ class MarketSimulationBB(MarketSimulationBase):
         self.anchor = timestamp
         test_data = np.reshape(self.test_data[index-50:index,0], (1, LOOK_BACK, 1))
         predictList = LSTMmodel.predict_sequence(self.model, test_data, LOOK_BACK, SETPFUTURE, self.scaler)
+
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(111)
+        ax.set_title("Bitcoin Price Over Time")
+        plt.plot(predictList, color='green', label='Predicted Price')
+        plt.plot(self.scaler.inverse_transform(self.test_data[index:index+SETPFUTURE,0]), color='red', label='Real Price')
+        ax.set_ylabel("Price (USD)")
+        ax.set_xlabel("Time (Days)")
+        ax.legend()
+        plt.show()
+
+
+
         maxIndex=np.argmax(predictList)
         minIndex=np.argmin(predictList)
         maxValue=np.max(predictList)
