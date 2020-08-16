@@ -1,6 +1,4 @@
 
-# Youtube video tutorial: https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg
-# Youku video tutorial: http://i.youku.com/pythontutorial
 
 ## Keras for deep learning
 from keras.layers.core import Dense, Activation, Dropout
